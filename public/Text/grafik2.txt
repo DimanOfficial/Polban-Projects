@@ -1,0 +1,516 @@
+saya memiliki grafik data kegiatan, yang dimana itu adalah menghitung total data kegiatan, saya ingin kamu perbaiki dibagian penyelenggara 'karyawan', dan jenis karyawan nya 'jurusan>prodi', permasalahan nya adalah data kegiatan khusus yang 'penyelenggara'>'karyawan' tidak terpanggil kedalam grafik, saya ingin kamu perbaiki dan fokus terhadap masalah saya tanpa mengubah atau mengganggu kode atau logika yang sudah benar, dan perbaiki secara rinci dan tepat.
+
+PejabatController.php
+public function filterGrafik()
+{
+    $tahun = $this->request->getGet('tahun') ?? date('Y'); // Default ke tahun sekarang
+    $bulan = $this->request->getGet('bulan') ?? null; // Biarkan null jika tidak diberikan
+
+    $data = $this->KegiatanModel->getKegiatanByMonth($tahun, $bulan);
+
+    return $this->response->setJSON([
+        'labels' => array_map(fn($week) => 'Minggu ' . $week, array_column($data, 'minggu')),
+        'kegiatan' => array_column($data, 'jumlah_kegiatan')
+    ]);
+}
+public function index4()
+    {
+    if (session()->get('role') !== 'Pejabat') {
+        return view('errors/403');
+    }
+    
+    $userId = session()->get('id_users');
+    $user = $this->profilAdminModel->getUserById($userId);
+
+    $jurusanModel = new JurusanModel();
+    $prodiModel = new ProdiModel();
+    $unitModel = new UnitModel();
+
+    $tahun = $this->request->getVar('tahun') ?? date('Y');
+    $kategori = $this->request->getVar('kategori') ?? 'total';
+    $filterValue = $this->request->getVar('filter') ?? null;
+
+    $data['tahun'] = $tahun;
+    $data['kategori'] = $kategori;
+    $data['filter'] = $filterValue;
+
+    $data['units'] = $this->KegiatanModel->getUnitNames();
+    $data['jurusans'] = $this->KegiatanModel->getJurusanNames();
+    $data['prodis'] = $this->KegiatanModel->getProdiNames();
+    $data['user'] = $user;
+
+    if ($kategori === 'total') {
+        $kegiatan = $this->KegiatanModel
+                        ->select('id_kegiatan, penyelenggara, id_jurusan, id_prodi, id_unit, tanggal_mulai')
+                        ->getKegiatanByYear($tahun);
+    } else {
+        $filterKey = ($kategori === 'peserta') ? 'peserta' : 'penyelenggara';
+        $kegiatan = $filterValue 
+                    ? $this->KegiatanModel
+                          ->select('id_kegiatan, penyelenggara, id_jurusan, id_prodi, id_unit, tanggal_mulai')
+                          ->getKegiatanByFilter($tahun, $filterKey, $filterValue) 
+                    : [];
+    }
+
+    $data['kegiatanPerBulan'] = array_fill(0, 12, 0);
+    $penyelenggaraCount = ['mahasiswa' => 0, 'karyawan' => 0];
+
+    foreach ($kegiatan as $item) {
+        if (!empty($item['tanggal_mulai'])) {
+            $month = date('n', strtotime($item['tanggal_mulai'])) - 1;
+            $data['kegiatanPerBulan'][$month] += 1;
+        }
+
+        if (isset($item['penyelenggara'])) {
+            $penyelenggara = strtolower($item['penyelenggara']);
+
+            if ($penyelenggara === 'mahasiswa') {
+                if (!empty($item['id_jurusan']) || !empty($item['id_prodi'])) {
+                    $penyelenggaraCount['mahasiswa']++;
+                }
+            } elseif ($penyelenggara === 'karyawan') {
+                if (!empty($item['id_unit'])) {
+                    $penyelenggaraCount['karyawan']++;
+                }
+            }
+        }
+    }
+
+    $data['penyelenggaraCount'] = $penyelenggaraCount;
+
+    return view('pejabat/grafik/index', $data);
+}
+public function getChartDataPenyelenggara()
+{
+    if (session()->get('role') !== 'Pejabat') {
+        return view('errors/403');
+    }
+
+    $input = $this->request->getJSON();
+    $tahun = $input->tahun ?? date('Y');
+    $filter = $input->filter ?? null;
+
+    if (empty($tahun)) {
+        return $this->response->setJSON([
+            'status' => 'error',
+            'message' => 'Tahun tidak valid.',
+        ]);
+    }
+
+    $data = [];
+
+    // Proses logika berdasarkan filter penyelenggara
+    if ($filter) {
+        if (strpos($filter, '-') !== false) {
+            [$jurusan, $prodi] = explode('-', $filter);
+            $jurusan = $jurusan !== 'showAllJurusan' ? $jurusan : null;
+            $prodi = $prodi !== 'showAllProdi' ? $prodi : null;
+
+            $data = $this->KegiatanModel->getDataPenyelenggaraKaryawan($tahun, $jurusan, $prodi);
+        } else {
+            $data = $this->KegiatanModel->getKegiatanByFilter($tahun, 'penyelenggara', ucfirst($filter));
+        }
+    } else {
+        $data = $this->KegiatanModel->getDataPenyelenggaraKaryawan($tahun);
+    }
+
+    return $this->response->setJSON([
+        'status' => 'success',
+        'data' => $data,
+]);
+}
+
+public function getChartData()
+{
+    if (session()->get('role') !== 'Pejabat') {
+        return view('errors/403');
+    }
+
+    $tahun = $this->request->getPost('tahun');
+    $jurusan = $this->request->getPost('jurusan');
+    $prodi = $this->request->getPost('prodi');
+   
+    $input = $this->request->getJSON();
+    $chartType = $input->chartType ?? '';
+    $tahun = $input->tahun ?? date('Y');
+    $filter = $input->filter ?? null;
+
+
+    if (empty($chartType) || empty($tahun)) {
+        return $this->response->setJSON([
+            'status' => 'error',
+            'message' => 'Parameter tidak valid.',
+        ]);
+    }
+
+    $data = [];
+    if ($chartType === 'penyelenggara') {
+        if ($filter) {
+            // Khusus untuk karyawan dengan jenis 'jurusan'
+            if (strpos($filter, '-') !== false) {
+                [$jurusan, $prodi] = explode('-', $filter);
+
+                // Jika jurusan atau prodi kosong, anggap semua data terkait
+                $jurusan = $jurusan !== 'showAllJurusan' ? $jurusan : null;
+                $prodi = $prodi !== 'showAllProdi' ? $prodi : null;
+
+                $data = $this->KegiatanModel->getDataPenyelenggaraKaryawan($tahun, $jurusan, $prodi);
+            } else {
+                $data = $this->KegiatanModel->getKegiatanByFilter($tahun, 'penyelenggara', ucfirst($filter));
+            }
+        }
+    } elseif ($chartType === 'total') {
+        $data = $this->KegiatanModel->getKegiatanByYear($tahun);
+    } elseif ($chartType === 'peserta') {
+        $data = $this->KegiatanModel->getKegiatanByFilter($tahun, $chartType, $filter);
+    }
+
+    log_message('debug', 'Data dikirim ke frontend: ' . json_encode($data));
+
+    return $this->response->setJSON([
+        'status' => 'success',
+        'data' => $data,
+]);
+}
+
+private function processChartFilter($chartType, $tahun, $filter)
+{
+    return match ($filter) {
+        'showAllMahasiswa' => $this->KegiatanModel->getAllDataByPenyelenggara('mahasiswa'),
+        'showAllJurusan' => $this->KegiatanModel->getAllDataByPenyelenggara('mahasiswa', 'jurusan'),
+        'showAllProdi' => $this->KegiatanModel->getAllDataByPenyelenggara('mahasiswa', 'prodi'),
+        'showAllUnit' => $this->KegiatanModel->getAllDataByPenyelenggara('karyawan'),
+        default => $this->KegiatanModel->getKegiatanByFilter($tahun, $chartType, $filter),
+    };
+}
+
+KegiatanModel.php
+public function getDataPenyelenggaraKaryawan($tahun, $jurusan = null, $prodi = null)
+{
+    $builder = $this->db->table('kegiatan');
+    $builder->select('MONTH(tanggal_mulai) as bulan, COUNT(id_kegiatan) as total');
+    $builder->where('YEAR(tanggal_mulai)', $tahun);
+    $builder->where('jenis_penyelenggara', 'karyawan');
+
+    if ($jurusan) {
+        $builder->where('id_jurusan', $jurusan);
+    }
+
+    if ($prodi) {
+        $builder->where('id_prodi', $prodi);
+    }
+
+    $builder->groupBy('MONTH(tanggal_mulai)');
+    $builder->orderBy('bulan', 'ASC');
+
+    // Debug query
+    log_message('debug', 'Query: ' . $builder->getCompiledSelect());
+    $result = $builder->get()->getResultArray();
+
+    // Debug hasil data
+    log_message('debug', 'Data: ' . print_r($result, true));
+
+    return $result;
+}
+    public function getJurusanByJenisKaryawan($jenisKaryawan)
+    {
+        $db = \Config\Database::connect();
+        return $db->table('jurusan')->where('jenis_karyawan', $jenisKaryawan)->get()->getResult();
+    }
+
+    public function getProdiByJurusan($idJurusan)
+    {
+        $db = \Config\Database::connect();
+        return $db->table('prodi')->where('id_jurusan', $idJurusan)->get()->getResult();
+    }
+
+  // Fungsi untuk mengambil rentang tahun dari kegiatan
+  public function getTahunRange()
+  {
+      $this->select('YEAR(tanggal_mulai) as tahun');
+      $this->groupBy('tahun');
+      $this->orderBy('tahun', 'ASC');
+      $result = $this->findAll();
+
+      return array_column($result, 'tahun');
+  }
+
+  // Fungsi untuk mengambil data berdasarkan tahun dan filter
+  public function getDataByYearAndFilter($year, $kategori, $filter)
+{
+    $this->select('MONTH(tanggal_mulai) as bulan, COUNT(*) as total');
+    $this->where('YEAR(tanggal_mulai)', $year);
+
+    if ($kategori === 'penyelenggara') {
+        if (is_array($filter)) {
+            // Filter untuk penyelenggara berdasarkan jurusan dan prodi
+            if (isset($filter['jurusan'])) {
+                $this->where('jurusan', $filter['jurusan']);
+            }
+            if (isset($filter['prodi'])) {
+                $this->where('prodi', $filter['prodi']);
+            }
+        } elseif ($filter) {
+            $this->where('jenis_penyelenggara', $filter);
+        }
+    }
+
+    $this->groupBy('bulan');
+    $this->orderBy('bulan', 'ASC');
+
+    return $this->findAll();
+}
+  public function getDataByKategoriAndYear($kategori, $tahun)
+{
+    $builder = $this->db->table('kegiatan');
+    $builder->select('MONTH(tanggal_mulai) as bulan, COUNT(id) as total');
+
+    // Filter tahun
+    $builder->where('YEAR(tanggal_mulai)', $tahun);
+
+    // Filter kategori
+    if ($kategori === 'peserta') {
+        $builder->where('kategori', 'peserta');
+    } elseif ($kategori === 'penyelenggara') {
+        $builder->where('kategori', 'penyelenggara');
+    }
+
+    $builder->groupBy('MONTH(tanggal_mulai)');
+    return $builder->get()->getResultArray();
+}
+
+js
+  function capitalize(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    async function fetchData(type) {
+        try {
+            const year = document.getElementById(`tahun${capitalize(type)}`).value;
+            let filter = '';
+
+            if (type === 'penyelenggara') {
+                const penyelenggaraType = document.getElementById('penyelenggaraType').value;
+
+                if (penyelenggaraType === 'mahasiswa') {
+                    const kategoriMahasiswa = document.getElementById('kategoriMahasiswa')?.value;
+                    if (kategoriMahasiswa === 'jurusan') {
+                        filter = document.getElementById('jurusan')?.value || 'showAllJurusan';
+                    } else if (kategoriMahasiswa === 'prodi') {
+                        filter = document.getElementById('prodi')?.value || 'showAllProdi';
+                    } else {
+                        filter = 'showAllMahasiswa';
+                    }
+                } else if (penyelenggaraType === 'karyawan') {
+                    const jenisKaryawan = document.getElementById('jenisKaryawan')?.value;
+
+                    if (jenisKaryawan === 'jurusan') {
+                        const jurusanKaryawan = document.getElementById('jurusanKaryawan')?.value || 'showAllJurusan';
+                        const prodiKaryawan = document.getElementById('prodiKaryawan')?.value || 'showAllProdi';
+                        filter = `${jurusanKaryawan}-${prodiKaryawan}`;
+                    } else if (jenisKaryawan === 'unit') {
+                        filter = document.getElementById('unitKaryawan')?.value || 'showAllUnit';
+                    } else {
+                        filter = 'showAllKaryawan';
+                    }
+                }
+            } else {
+                filter = document.getElementById(`filter${capitalize(type)}`)?.value || '';
+            }
+
+            const response = await fetch(`<?= base_url('/dashboard/getChartData') ?>`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    chartType: type,
+                    tahun: year,
+                    filter
+                }),
+            });
+
+            const data = await response.json();
+            if (data.status !== 'success') {
+                throw new Error(data.message || 'Gagal memuat data.');
+            }
+
+            updateChart(type, data.data);
+        } catch (error) {
+            console.error(`Error fetching data: ${error.message}`);
+            alert('Terjadi kesalahan saat memuat data.');
+        }
+    }
+    async function fetchDataPenyelenggara() {
+    try {
+        const year = document.getElementById('tahunPenyelenggara').value;
+        const penyelenggaraType = document.getElementById('penyelenggaraType').value;
+        let filter = '';
+
+        if (penyelenggaraType === 'mahasiswa') {
+            const kategoriMahasiswa = document.getElementById('kategoriMahasiswa')?.value;
+            if (kategoriMahasiswa === 'jurusan') {
+                filter = document.getElementById('jurusan')?.value || 'showAllJurusan';
+            } else if (kategoriMahasiswa === 'prodi') {
+                filter = document.getElementById('prodi')?.value || 'showAllProdi';
+            } else {
+                filter = 'showAllMahasiswa';
+            }
+        } else if (penyelenggaraType === 'karyawan') {
+            const jenisKaryawan = document.getElementById('jenisKaryawan')?.value;
+
+            if (jenisKaryawan === 'jurusan') {
+                const jurusanKaryawan = document.getElementById('jurusanKaryawan')?.value || 'showAllJurusan';
+                const prodiKaryawan = document.getElementById('prodiKaryawan')?.value || 'showAllProdi';
+                filter = `${jurusanKaryawan}-${prodiKaryawan}`;
+            } else if (jenisKaryawan === 'unit') {
+                filter = document.getElementById('unitKaryawan')?.value || 'showAllUnit';
+            } else {
+                filter = 'showAllKaryawan';
+            }
+        }
+
+        const response = await fetch('<?= base_url('/dashboard/getChartDataPenyelenggara') ?>', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                tahun: year,
+                filter,
+            }),
+        });
+
+        const result = await response.json();
+        if (result.status !== 'success') {
+            throw new Error(result.message || 'Gagal memuat data.');
+        }
+
+        updateChart('penyelenggara', result.data);
+    } catch (error) {
+        console.error(`Error fetching data penyelenggara: ${error.message}`);
+        alert('Terjadi kesalahan saat memuat data penyelenggara.');
+    }
+}
+
+    function updateChart(type, data) { 
+        const chartId = `${type}Chart`;
+        const ctx = document.getElementById(chartId)?.getContext('2d');
+        if (!ctx) {
+            console.error(`Canvas dengan ID ${chartId} tidak ditemukan.`);
+            return;
+        }
+
+        // Hancurkan chart lama jika sudah ada
+        if (Chart.getChart(chartId)) {
+            Chart.getChart(chartId).destroy();
+        }
+
+        const labels = [
+            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        ];
+
+        const values = Array(12).fill(0);
+        if (Array.isArray(data)) {
+            data.forEach(item => {
+                const month = parseInt(item.bulan) - 1;
+                if (!isNaN(month) && month >= 0 && month < 12) {
+                    values[month] = item.total;
+                }
+            });
+        }
+
+        new Chart(ctx, {
+            type: type === 'total' ? 'bar' : 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `Jumlah Kegiatan ${capitalize(type)}`,
+                    data: values,
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (tooltipItem) => `${tooltipItem.label}: ${tooltipItem.raw}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function updatePenyelenggaraOptions() {
+        const penyelenggaraType = document.getElementById('penyelenggaraType').value;
+        const dynamicDropdowns = document.getElementById('penyelenggaraDynamicDropdowns');
+        dynamicDropdowns.innerHTML = ''; // Reset isi dropdown dinamis
+
+        if (penyelenggaraType === 'mahasiswa') {
+            dynamicDropdowns.innerHTML = `
+                <label for="kategoriMahasiswa">Kategori Mahasiswa:</label>
+                <select id="kategoriMahasiswa" class="form-select mb-3" onchange="updateMahasiswaOptions()">
+                    <option value="">-- Pilih Kategori --</option>
+                    <option value="jurusan">Jurusan</option>
+                    <option value="prodi">Prodi</option>
+                    <option value="showAllMahasiswa">Tampilkan Semua Mahasiswa</option>
+                </select>
+                <div id="mahasiswaOptions"></div>
+            `;
+        } else if (penyelenggaraType === 'karyawan') {
+            dynamicDropdowns.innerHTML = `
+                <label for="jenisKaryawan">Jenis Karyawan:</label>
+                <select id="jenisKaryawan" class="form-select mb-3" onchange="updateJenisKaryawanOptions()">
+                    <option value="">-- Pilih Jenis Karyawan --</option>
+                    <option value="jurusan">Jurusan</option>
+                    <option value="unit">Unit</option>
+                </select>
+                <div id="karyawanOptions"></div>
+            `;
+        }
+    }
+
+    function updateJenisKaryawanOptions() {
+        const jenisKaryawan = document.getElementById('jenisKaryawan')?.value;
+        const karyawanOptions = document.getElementById('karyawanOptions');
+        karyawanOptions.innerHTML = ''; // Reset isi dropdown karyawan
+
+        if (jenisKaryawan === 'jurusan') {
+            karyawanOptions.innerHTML = `
+                <label for="jurusanKaryawan">Jurusan:</label>
+                <select id="jurusanKaryawan" class="form-select mb-3" onchange="updateProdiKaryawanOptions()">
+                    <option value="">-- Pilih Jurusan --</option>
+                    <!-- Option untuk jurusan yang bisa dipilih -->
+                    <?php foreach ($jurusans as $jurusan): ?>
+                        <option value="<?= $jurusan['id_jurusan'] ?>"><?= $jurusan['nama_jurusan'] ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <div id="prodiKaryawanOptions"></div>
+            `;
+        } else if (jenisKaryawan === 'unit') {
+            karyawanOptions.innerHTML = `
+                <label for="unitKaryawan">Unit:</label>
+                <select id="unitKaryawan" class="form-select mb-3">
+                    <option value="">-- Pilih Unit --</option>
+                    <?php foreach ($units as $unit): ?>
+                        <option value="<?= $unit['id_unit'] ?>"><?= $unit['nama_unit'] ?></option>
+                    <?php endforeach; ?>
+                </select>
+            `;
+        }
+    }

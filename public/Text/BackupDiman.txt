@@ -1,0 +1,52 @@
+<!-- Status -->
+            <div class="mb-3">
+                <label for="status" class="form-label">Status</label>
+                <select class="form-control" id="status" name="status" readonly>
+                    <option value="pending" <?= old('status') === 'pending' ? 'selected' : ''; ?>>Pending</option>
+                    <option value="sudah disetujui" <?= old('status') === 'sudah disetujui' ? 'selected' : ''; ?>>Sudah Disetujui</option>
+                    <option value="sedang dilaksanakan" <?= old('status') === 'sedang dilaksanakan' ? 'selected' : ''; ?>>Sedang Dilaksanakan</option>
+                    <option value="sudah selesai" <?= old('status') === 'sudah selesai' ? 'selected' : ''; ?>>Sudah Selesai</option>
+                </select>
+            </div>
+
+
+
+
+jadi saya mempunyai tabel user seperti ini : 
+
+'username', 'email', 'password', 'role', 'jenis_users Enum(Mahasiswa, Karyawan)', 'jenis_karyawan Enum(Jurusan, Unit)', 'nama_lengkap', 'nim', 'id_jurusan', 'id_prodi', 'id_unit', 'nip', 'profile_pic', 'status', 'created_at', 'updated_at','reset_otp', 'otp_expiry'.
+
+Nah jadi dalam tabel user tersebut akan menghasilkan 3 akun yaitu : 
+
+1. Akun Mahasiswa dengan jenis users nya Mahasiswa.
+Untuk yang akun Mahasiswa itu akan berisi Username, nama_lengkap, NIM, Jurusan dan Prodi.
+
+2. Akun Karyawan dengan jenis users nya Karyawan dan jenis karyawan nya yaitu Jurusan.
+Untuk Akun Karyawan dengan jenis users nya Karyawan dan jenis karyawan nya yaitu Jurusan akan berisi Username, nama_lengkap, NIP, Jurusan dan Prodi.
+
+3. Akun Karyawan dengan jenis users nya Karyawan dan jenis karyawan nya yaitu Unit.
+Untuk Akun Karyawan dengan jenis users nya Karyawan dan jenis karyawan nya yaitu Unit akan berisi Username, nama_lengkap, NIP, dan Unit.
+
+Nah nanti kan mereka akan login tuh ke dashboard, nah saya ingin agar mereka mempunyai sebuah profil diri sendiri sesuai dengan data akun mereka. Misal : 
+
+1. Mereka login dengan akun Mahasiswa dan jenis users nya itu Mahasiswa, maka data yang akan ditampilkan di profil mereka yaitu Username, nama_lengkap, NIM, Jurusan dan Prodi.
+
+2. Mereka login dengan akun Karyawan dan jenis users nya itu Karyawan, maka data yang akan ditampilkan di profil mereka yaitu Username, nama_lengkap, NIP, Jurusan dan Prodi.
+
+3. Mereka login dengan akun Karyawan dan jenis users nya itu Karyawan, maka data yang akan ditampilkan di profil mereka yaitu Username, nama_lengkap, NIP, dan unit.
+
+
+
+Apa kamu bisa membuatkannya seperti yang saya jelaskan diatas, untuk pembuatannya saya menggunakan php, codeigniter 4 via composer dan bootstrap.
+
+
+
+
+
+//Episode 2
+
+Untuk kodingannya sudah berjalan dan sudah bisa menampilkan data user yang login, Tetapi ada beberapa masalah yang harus diperbaiki : 
+
+1. ketika saya login dengan akun Mahasiswa dan jenis user nya itu Mahasiswa, pas saya liat di profilnya itu berjalan dengan baik, sudah menampilkan Username, nama_lengkap, NIM, Jurusan dan Prodi.
+
+2. Sebaliknya ketika saya login dengan akun Karyawan dengan jenis users nya Karyawan serta jenis_karyawan "Jurusan" maupun "Unit", itu pas saya cek di profil yang muncul dan ditampilkan hanya Username, nama_lengkap, dan NIP. Untuk jurusan, prodi atau unit untuk jenis users karyawan dan jenis_karyawan nya itu jurusan maupun unit itu kok gak muncul yah. Apa bisa diperbaiki lagi ?

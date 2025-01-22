@@ -1,0 +1,160 @@
+Tolong bantu saya untuk membuat sebuah grafik dengan logika yang cukup dinamis. Disana terdapat sebuah halaman grafik yang di sediakan dengan beberapa Tab diatas yaitu Total Kegiatan, Peserta dan Penyelenggara. Untuk Total Kegiatan dan Peserta itu grafik nya sudah benar nah tapi tidak untuk penyelenggara, saya akan menjelaskan secara menyeluruh : 
+
+Pertama, saya mempunyai sebuah tabel kegiatan seperti ini : 
+
+id_kegiatan int(11) NOT NULL,
+  nama_kegiatan varchar(255) NOT NULL,
+  poster varchar(255) DEFAULT NULL,
+  video varchar(255) DEFAULT NULL,
+  deskripsi text DEFAULT NULL,
+  tanggal_mulai date NOT NULL,
+  tanggal_selesai date NOT NULL,
+  waktu_kegiatan varchar(100) NOT NULL,
+  lokasi varchar(255) NOT NULL,
+  jenis_kegiatan enum('Akademik','Non Akademik','Umum') NOT NULL,
+  penanggung_jawab varchar(255) NOT NULL,
+  peserta enum('mahasiswa','karyawan','umum','pejabat') NOT NULL,
+  nara_hubung varchar(255) DEFAULT NULL,
+  penyelenggara enum('Mahasiswa','Karyawan') NOT NULL,
+  id_users int(11) NOT NULL,
+  nama_lengkap varchar(100) NOT NULL,
+  id_jurusan int(11) DEFAULT NULL,
+  id_prodi int(11) DEFAULT NULL,
+  id_unit int(11) DEFAULT NULL,
+  status enum('belum dimulai','sedang dilaksanakan','sudah selesai') NOT NULL,
+  disetujui enum('pending','disetujui','ditolak') DEFAULT 'pending',
+  keterangan text DEFAULT NULL,
+  created_at timestamp NOT NULL DEFAULT current_timestamp(),
+  updated_at timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+
+
+Nah untuk kegiatan juga itu itu dibuat berdasarkan penyelenggara, ditabel kegiatan ada kolom id_jurusan, id_prodi dan id_unit itu digunakan untuk menyimpan data yang diambil dari tabel users. 
+
+
+Nah kali ini saya kan lagi buat grafik berdasarkan penyelenggara, nah seperti yang kamu liat itu adalah tampilan grafik berdasarkan penyelenggara tetapi grafik tersebut error dan masih belum berfungsi dikarenakan tidak jelas dalam pengambilan datanya. Nah saya ingin agar kamu membantu untuk menyesuaikan dan memperbaiki logika grafik saya. Ouh iyah saya ingin agar grafiknya itu berbentuk Pie Chart
+
+Nah untuk logika nya seperti ini : 
+disini saya akan menjelaskan mengenai logika grafik berdasarkan penyelenggara, disini akan terdapat 2 kondisi yaitu penyelenggara berdasarkan "Mahasiswa" dan "Karyawan". Saya akan jelaskan satu satu. Ouh iyah grafik penyelenggara ini juga dikategorikan ke dalam Tahun ya. Jadi misal ditahun sekian ada berapa data gitu.
+
+1. Grafik Penyelenggara berdasarkan "Mahasiswa"
+
+#Penyelenggara.
+pilih = Mahasiswa
+
+#Kategori ( Jurusan, Prodi, Show All Mahasiswa )
+a. pilih = Jurusan.
+akan muncul kolom dropdown nama jurusan yang dimana data grafik yang nanti akan muncul itu diambil dari tabel kegiatan kolom id_jurusan.
+
+b. pilih = Prodi.
+ akan muncul kolom dropdown nama prodi yang dimana data grafik yang nanti akan muncul itu diambil dari tabel kegiatan kolom id_prodi.
+
+c. pilih = Show All Mahasiswa.
+itu nanti ketika klik tombol "Tampilkan" akan langsung menampilkan semua grafik penyelenggara Mahasiswa termasuk jurusan dan prodi. 
+
+2. Grafik Penyelenggara berdasarkan "Karyawan"
+
+#Penyelenggara.
+pilih = Karyawan
+
+#Unit
+a. pilih = unit.
+akan muncul kolom dropdown nama unit yang dimana data grafik yang nanti akan muncul itu diambil dari tabel kegiatan kolom id_unit.
+
+# Tahun.
+pilih = daftar tahun
+
+
+
+
+Ini adalah file kodingan untuk tampilan grafik Tab nya, saya ingin agar kamu urus yang grafik Tab Penyelenggara aja untuk total kegiatan dan peserta jangan disentuh
+
+<div class="container mt-5">
+    <h2 class="text-center">Grafik Kegiatan</h2>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="total-tab" data-bs-toggle="tab" data-bs-target="#total" type="button" role="tab" aria-controls="total" aria-selected="true">Total Kegiatan</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="peserta-tab" data-bs-toggle="tab" data-bs-target="#peserta" type="button" role="tab" aria-controls="peserta" aria-selected="false">Peserta</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="penyelenggara-tab" data-bs-toggle="tab" data-bs-target="#penyelenggara" type="button" role="tab" aria-controls="penyelenggara" aria-selected="false">Penyelenggara</button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content mt-3" id="kategoriTabContent">
+        <!-- Total Kegiatan -->
+        <div class="tab-pane fade show active" id="total" role="tabpanel" aria-labelledby="total-tab">
+            <form onsubmit="fetchData('total'); return false;">
+                <label for="tahunTotal">Tahun:</label>
+                <select id="tahunTotal" class="form-select mb-3">
+                    <?php for ($i = 2020; $i <= date('Y'); $i++): ?>
+                        <option value="<?= $i ?>"><?= $i ?></option>
+                    <?php endfor; ?>
+                </select>
+                <button type="submit" class="btn btn-primary">Tampilkan</button>
+            </form>
+            <div class="bx">
+                <canvas id="totalChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Peserta -->
+        <div class="tab-pane fade" id="peserta" role="tabpanel" aria-labelledby="peserta-tab">
+            <form onsubmit="fetchData('peserta'); return false;">
+                <label for="filterPeserta">Peserta:</label>
+                <select id="filterPeserta" class="form-select mb-3">
+                    <option value="mahasiswa">Mahasiswa</option>
+                    <option value="pejabat">Pejabat</option>
+                    <option value="karyawan">Karyawan</option>
+                    <option value="umum">Umum</option>
+                </select>
+                <label for="tahunPeserta">Tahun:</label>
+                <select id="tahunPeserta" class="form-select mb-3">
+                    <?php for ($i = 2020; $i <= date('Y'); $i++): ?>
+                        <option value="<?= $i ?>"><?= $i ?></option>
+                    <?php endfor; ?>
+                </select>
+                <button type="submit" class="btn btn-primary">Tampilkan</button>
+            </form>
+            <div class="bx">
+                <canvas id="pesertaChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Penyelenggara -->
+        <div class="tab-pane fade" id="penyelenggara" role="tabpanel" aria-labelledby="penyelenggara-tab">
+            <form onsubmit="fetchData('penyelenggara'); return false;">
+                <label for="penyelenggaraType">Penyelenggara:</label>
+                <select id="penyelenggaraType" class="form-select mb-3" onchange="updatePenyelenggaraOptions()">
+                    <option value="">-- Pilih Penyelenggara --</option>
+                    <option value="mahasiswa">Mahasiswa</option>
+                    <option value="karyawan">Karyawan</option>
+                </select>
+
+                <!-- Dropdown Dinamis -->
+                <div id="dynamicOptions" class="mb-3"></div>
+
+                <label for="tahunPenyelenggara">Tahun:</label>
+                <select id="tahunPenyelenggara" class="form-select mb-3">
+                    <?php for ($i = 2020; $i <= date('Y'); $i++): ?>
+                        <option value="<?= $i ?>"><?= $i ?></option>
+                    <?php endfor; ?>
+                </select>
+                <button type="submit" class="btn btn-primary">Tampilkan</button>
+            </form>
+            <div class="bx">
+                <canvas id="penyelenggaraChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div> 
+
+
+
+Jadi apa kamu bisa membantu membuatkan saya logika grafik yang sudah saya jelaskan diatas? tolong bantu saya. Jadi data yang akan muncul di grafik adalah data kegiatan berdasarkan Penyelenggara "Mahasiswa" atau "Karyawan" termasuk jurusan/prodi/unit. Untuk pembuatannya saya menggunakan php, codeigniter 4 via composer dan bootstrap.
+
+

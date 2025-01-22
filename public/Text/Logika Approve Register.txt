@@ -1,0 +1,389 @@
+siang bang, bisa bantu saya gak? jadi gini saya kan lagi buat website dinamis yaitu website pengelola data kegiatan. Nah sebenarnya saya sudah membuat websitenya udah jadi dari mulai form login/register, dashboard, pembatasan  hak akses mengggunakan filter dan middleware dan lain lain. Nah bisa dibilang web saya ini sudah 80% jadi. Tapi kemarin pembimbing saya minta revisi ke website saya mengenai form daftarnya. 
+
+Jadi gini saat user akan melakukan register akun, pembimbing saya  ingin agar ketika mereka klik tombol "Register" jangan langsung mengaktifkan akun mereka tapi ada proses approve atau persetujuan dari admin. Maksudnya gimana? gini saya jelaskan : 
+
+Jadi pertama user akan melakukan sebuah register akun -> mereka mengisi beberapa kolom yang sudah disediakan -> klik submit/register -> nah dari sini akun mereka sudah tersimpan di database tetapi statusnya Non Aktif artinya tidak bisa digunakan -> ditambah setelah mereka klik submit mereka akan langsung diarahkan ke halaman baru yang akan ditampilkan dengan sebuah pop up yang bertuliskan "Anda berhasil mendaftar, Mohon tunggu selama 1x24 jam untuk persetujun dari Admin". 
+
+Kita pindah ke dashboard Admin, di dashboard admin ini ada sebuah tabel users yang berisi data data users yang sudah register, nah data akun user yang tadi register akan muncul disini. Pada tabel user tersebut ada kolom status itu nilai default nya "Menunggu Persetujuan" dan kolom aksi yang dimana berisi 2 tombol yang bernama "Setujui" dan "Tolak". Disini agak sedikit membutuhkan logika, jadi gini ketika si Admin memberikan sebuah persetujuan dengan cara mengklik tombol "Setujui" maka kolom status akan berubah secara otomatis menjadi "Aktif" serta akan otomatis mengirimkan sebuah pesan ke email users yang login. Untuk pesan yang dikirim ke email users seperti ini : 
+
+"Selamat kepada (nama_lengkap)
+Akun anda telah berhasil disetujui oleh sang Admin, klik link dibawah ini untuk melakukan login
+contoh : URL halaman login"
+
+Setelah users tersebut mengklik login maka dengan begitu users tersebut sudah bisa
+
+Tetapi, jika admin menolak persetujuan dengan mengklik tombol "Tolak", maka akan muncul sebuah modal pop up untuk diisi oleh Admin yang isi pesannya tersebut ialah Alasan mengapa Admin tersebut menolak. Contoh pesannya seperti berikut : 
+
+"Akun yang anda daftarkan tidak valid sehingga di Tolak oleh Admin"
+
+setelah mengisi pesan tersebut di modal pop up ketika admin klik tombol kirim, maka secara otomatis pesan tersebut akan terkirim ke Email milik users dan kolom status akan secara otomatis berubah menjadi Non Aktif. Dengan begitu users tersebut tidak akan bisa login dan harus register ulang. 
+
+Nah apa kamu bisa membantu saya membuat seperti yang saya inginkan diatas? Untuk pembuatan websitenya saya menggunakan php, codeigniter 4 via composer dan bootstrap.
+
+
+
+
+
+////////
+Tentu, Diman! Saya bisa bantu implementasikan logika dan fitur yang kamu butuhkan untuk proses persetujuan akun di website manajemen kegiatanmu. Berikut adalah langkah-langkah yang bisa kita lakukan:
+
+---
+
+### **1. Update Database**
+Tambahkan kolom berikut pada tabel `users`:
+- `status` (enum): `['Menunggu Persetujuan', 'Aktif', 'Non Aktif']`, default: `Menunggu Persetujuan`.
+- `approval_reason` (text): Untuk menyimpan alasan penolakan.
+
+---
+
+### **2. Proses Register**
+#### **Controller: `AuthController`**
+Pada fungsi `register`, simpan user dengan status default `Menunggu Persetujuan`. Berikut contoh kode:
+
+```php
+public function register()
+{
+    $validation = $this->validate([
+        'username'      => 'required|is_unique[users.username]',
+        'email'         => 'required|valid_email|is_unique[users.email]',
+        'password'      => 'required|min_length[8]',
+        'nama_lengkap'  => 'required',
+    ]);
+
+    if (!$validation) {
+        return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+    }
+
+    $userData = [
+        'username'     => $this->request->getPost('username'),
+        'email'        => $this->request->getPost('email'),
+        'password'     => password_hash($this->request->getPost('password'), PASSWORD_BCRYPT),
+        'nama_lengkap' => $this->request->getPost('nama_lengkap'),
+        'status'       => 'Menunggu Persetujuan', // Default status
+        'role'         => 'Pembuat', // Default role (sesuai kebutuhan)
+    ];
+
+    $this->userModel->insert($userData);
+
+    return redirect()->to('/register-success')->with('message', 'Pendaftaran berhasil. Mohon tunggu 1x24 jam untuk persetujuan.');
+}
+```
+
+#### **View: `register_success.php`**
+Tampilkan pesan setelah user mendaftar:
+```php
+<div class="alert alert-success">
+    <h4>Pendaftaran Berhasil!</h4>
+    <p>Mohon tunggu selama 1x24 jam untuk persetujuan dari Admin.</p>
+</div>
+```
+
+---
+
+### **3. Tabel Approval di Dashboard Admin**
+#### **Controller: `AdminController`**
+Tambahkan fungsi untuk mengambil data user yang statusnya `Menunggu Persetujuan`:
+
+```php
+public function approvals()
+{
+    $data['users'] = $this->userModel->where('status', 'Menunggu Persetujuan')->findAll();
+    return view('admin/approvals', $data);
+}
+```
+
+#### **View: `approvals.php`**
+Tampilkan tabel dengan tombol `Setujui` dan `Tolak`:
+
+```php
+<table class="table">
+    <thead>
+        <tr>
+            <th>Nama Lengkap</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php foreach ($users as $user): ?>
+        <tr>
+            <td><?= $user['nama_lengkap']; ?></td>
+            <td><?= $user['email']; ?></td>
+            <td><?= $user['status']; ?></td>
+            <td>
+                <a href="<?= base_url('admin/approve/' . $user['id_users']); ?>" class="btn btn-success">Setujui</a>
+                <button class="btn btn-danger" onclick="rejectUser(<?= $user['id_users']; ?>)">Tolak</button>
+            </td>
+        </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
+```
+
+Tambahkan modal untuk menolak user:
+
+```html
+<div class="modal" id="rejectModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="rejectForm" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tolak Pendaftaran</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea name="reason" class="form-control" placeholder="Alasan penolakan" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-danger">Kirim</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    function rejectUser(userId) {
+        $('#rejectForm').attr('action', `<?= base_url('admin/reject/'); ?>${userId}`);
+        $('#rejectModal').modal('show');
+    }
+</script>
+```
+
+---
+
+### **4. Proses Approve dan Reject**
+#### **Approve**
+Tambahkan fungsi di `AdminController` untuk menyetujui user dan mengirim email:
+
+```php
+public function approve($id)
+{
+    $user = $this->userModel->find($id);
+
+    if ($user) {
+        $this->userModel->update($id, ['status' => 'Aktif']);
+        
+        // Kirim Email
+        $message = "Selamat {$user['nama_lengkap']},\n\nAkun Anda telah disetujui oleh Admin. Silakan login di: " . base_url('/login');
+        mail($user['email'], 'Akun Disetujui', $message);
+
+        return redirect()->back()->with('message', 'User berhasil disetujui.');
+    }
+    return redirect()->back()->with('error', 'User tidak ditemukan.');
+}
+```
+
+#### **Reject**
+Tambahkan fungsi di `AdminController` untuk menolak user:
+
+```php
+public function reject($id)
+{
+    $reason = $this->request->getPost('reason');
+    $user = $this->userModel->find($id);
+
+    if ($user) {
+        $this->userModel->update($id, [
+            'status' => 'Non Aktif',
+            'approval_reason' => $reason
+        ]);
+        
+        // Kirim Email
+        $message = "Halo {$user['nama_lengkap']},\n\nAkun Anda ditolak oleh Admin. Alasan: {$reason}";
+        mail($user['email'], 'Akun Ditolak', $message);
+
+        return redirect()->back()->with('message', 'User berhasil ditolak.');
+    }
+    return redirect()->back()->with('error', 'User tidak ditemukan.');
+}
+```
+
+---
+
+### **5. Validasi Login**
+Saat login, tambahkan validasi untuk memeriksa status user:
+
+```php
+if ($user['status'] != 'Aktif') {
+    return redirect()->back()->with('error', 'Akun Anda belum aktif atau ditolak.');
+}
+```
+
+---
+
+Coba implementasikan langkah-langkah ini, dan beri tahu saya jika ada kendala! 😊
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/////aowkoakwokaow
+Jadi gini saya akan mengirimkan beberapa kodingan untuk bisa di diskusikan dengan mu.
+
+PembuatController
+
+public function tambah()
+{
+    // Mendapatkan data user yang login
+    $id_users = session()->get('id_users');
+    $user = $this->UserModel->getUserById($id_users);
+
+    // Ambil data untuk form (jurusan, prodi, unit)
+    $data = [
+        'title' => 'Halaman Tambah Data',
+        'user' => $user,
+        'jurusan' => $this->JurusanModel->findAll(),
+        'prodi' => $this->ProdiModel->findAll(),
+        'unit' => $this->UnitModel->findAll(),
+    ];
+
+    return view('pembuat/tambah', $data);
+}
+
+public function simpan()
+    {
+
+        $id_users = session()->get('id_users');
+        $user = $this->UserModel->getUserById($id_users);
+
+if (session()->get('role') !== 'Pembuat') {
+            return view('errors/403'); // Tampilkan halaman Unauthorized
+        }  
+              
+         $validation = \Config\Services::validation();
+$penyelenggara = $this->request->getPost('penyelenggara');
+    if ($user['jenis_users'] === 'Mahasiswa' && $penyelenggara === 'Mahasiswa') {
+        $this->PembuatModel->save([
+            'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+            'poster' => $newName, // Nama file poster
+            'video' => $videoName,   // Nama file video (null jika tidak diupload)
+            'deskripsi' => $this->request->getPost('deskripsi'),
+            'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+            'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+            'lokasi' => $this->request->getPost('lokasi'),
+            'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+            'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+            'peserta' => $this->request->getPost('peserta'),
+            'nara_hubung' => $this->request->getPost('nara_hubung'),
+            'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan'),
+            'status' => 'Belum dimulai',
+            'disetujui' => 'pending',
+            'keterangan' => $this->request->getPost('keterangan'),
+            'penyelenggara' => $penyelenggara,
+            'id_users' => $id_users,
+            'nama_lengkap' => $user['nama_lengkap'],
+            'id_jurusan' => $user['id_jurusan'],
+            'id_prodi' => $user['id_prodi'],
+        ]);
+    } elseif ($user['jenis_users'] === 'Karyawan' && $penyelenggara === 'Karyawan') {
+        $this->PembuatModel->save([
+            'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+            'poster' => $newName, // Nama file poster
+            'video' => $videoName,   // Nama file video (null jika tidak diupload)
+            'deskripsi' => $this->request->getPost('deskripsi'),
+            'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+            'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+            'lokasi' => $this->request->getPost('lokasi'),
+            'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+            'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+            'peserta' => $this->request->getPost('peserta'),
+            'nara_hubung' => $this->request->getPost('nara_hubung'),
+            'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan'),
+            'status' => 'Belum dimulai',
+            'disetujui' => 'pending',
+            'keterangan' => $this->request->getPost('keterangan'),
+            'penyelenggara' => $penyelenggara,
+            'id_users' => $id_users,
+            'nama_lengkap' => $user['nama_lengkap'],
+            'id_unit' => $user['id_unit'],
+        ]);
+    } else {
+        return redirect()->back()->with('error', 'Anda harus memilih sesuai dengan jenis_users Anda.');
+    }
+
+    return redirect()->to('/dashboard/pembuat/kegiatan')->with('success', 'Data berhasil ditambahkan.');
+    }
+
+
+    File Tambah Kegiatan
+<!-- Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="penyelenggara" class="form-label">Penyelenggara</label>
+                        <select class="form-control" id="penyelenggara" name="penyelenggara" onchange="handlePenyelenggaraChange()">
+                            <option value="">-- Pilih Penyelenggara --</option>
+                            <option value="Mahasiswa" <?= old('penyelenggara') === 'Mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="Karyawan" <?= old('penyelenggara') === 'Karyawan' ? 'selected' : ''; ?>>Karyawan</option>
+                        </select>
+                    </div>
+
+                    <!-- Dynamic Fields -->
+                    <div id="dynamic-fields"></div>
+<script>
+    function handlePenyelenggaraChange() {
+        const penyelenggara = document.getElementById('penyelenggara').value;
+        const userType = '<?= $user['jenis_users'] ?>';
+        const namaLengkap = '<?= $user['nama_lengkap'] ?>';
+        const jurusan = '<?= $user['nama_jurusan'] ?>'; // Nama jurusan
+        const prodi = '<?= $user['nama_prodi'] ?>'; // Nama prodi
+        const unit = '<?= $user['nama_unit'] ?>'; // Nama unit
+
+        const dynamicFields = document.getElementById('dynamic-fields');
+        dynamicFields.innerHTML = '';
+
+        if (penyelenggara === 'Mahasiswa' && userType === 'Mahasiswa') {
+            dynamicFields.innerHTML = `
+                <div class="mb-3">
+                    <label for="nama_lengkap" class="form-label">Nama Lengkap</label>
+                    <input type="text" class="form-control" id="nama_lengkap" name="nama_lengkap" value="${namaLengkap}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="jurusan" class="form-label">Jurusan</label>
+                    <input type="text" class="form-control" id="jurusan" name="jurusan" value="${jurusan}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="prodi" class="form-label">Prodi</label>
+                    <input type="text" class="form-control" id="prodi" name="prodi" value="${prodi}" readonly>
+                </div>
+            `;
+        } else if (penyelenggara === 'Karyawan' && userType === 'Karyawan') {
+            dynamicFields.innerHTML = `
+                <div class="mb-3">
+                    <label for="nama_lengkap" class="form-label">Nama Lengkap</label>
+                    <input type="text" class="form-control" id="nama_lengkap" name="nama_lengkap" value="${namaLengkap}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="unit" class="form-label">Unit</label>
+                    <input type="text" class="form-control" id="unit" name="unit" value="${unit}" readonly>
+                </div>
+            `;
+        } else {
+           // Memunculkan Toast
+        const toast = new bootstrap.Toast(document.getElementById('errorToast'));
+        toast.show();
+        }
+    }
+</script>
+
+
+
+
+itulah beberapa potongan kode, saya akan ceritakan sedikit mengenai kode diatas. Jadi kode diatas tersebut adalah untuk menangani logika form tambah data. Jadi kan di user daftar tuh dengan mengisi beberapa input kolom, salah satunya ada kolom input Jenis users. Nah nanti dalam form daftar ini akan menghasilkan 2 akun berdasarkan jenis user yaitu Mahasiswa atau Karyawan. Nah nanti pas kan login yah tuh user baik login nya itu pake akun jenis user nya itu mahasiswa atau karyawan. Disini saya coba login dengan akun jenis user nya itu karyawan dan masuk ke dashboard, disana saya akan menambah sebuah kegiatan baru. Nah klik tuh tombol Tambah Kegiatan, seperti yang kamu liat pada gambar diatas untuk form nya seperti itu. Jadi ketika mengisi beberapa input, khusus nya input Penyelenggara itu kan pilihan ya "Mahasiswa" dan Karyawan di dropdown gitu. Nah saya kasih logika untuk input penyelenggara itu disesuaikan dengan data jenis user yang tadi dipilih pas register. Contoh kan saya tadi login pake akun yang jenis user nya itu Karyawan, otomatis pas saya tambah data itu pada input penyelenggara itu saya harus wajib pilih Karyawan karena harus disesuaikan dengan jenis user saya. Baru setelah memilih Karyawan akan muncul kolom dinamis yang menampilkan data user saya. Begitupun sebaliknya untuk login dengan jenis user Mahasiswa. Nah sekilas ini sudah terlihat bagus yah, tapi pas saya tunjukan ke Guru Pembimbing saya katanya ini gak bagus dan malah mempersulit pengguna nanti. Jadi pembimbing saya inginkan itu ketika kita login dengan akun yang jenis user nya itu "Mahasiswa" atau "Karyawan", itu nanti pas masuk ke halaman tambah data itu pada kolom Penyelenggara dan kolom dinamis sudah otomatis muncul datanya pas pertama kali buka halaman form tambah.
+
+jadi pas pertama kali masuk ke halaman form tambah, input penyelenggara dan input dinamis lainnya yang menampilkan data user saya sudah tampil disana. Jadi saya gak perlu lagi repot repot pilih dropdown di input penyelenggaranya dengan pilihan mahasiswa maupun Karyawan. Jadi sudah tertampil gitu secara otomatis input penyelenggaranya dengan isi Mahasiswa atau Karyawan berdasarkan saya login dengan akun yang jenis user nya itu Mahasiswa atau Karyawan. Gimana kamu ngerti gak yang aku maksud? Apa kamu bisa memperbaiki sesuai dengan yang saya inginkan? Untuk pembuatannya saya menggunakan php, codeigniter 4 via composer dan boootstra 

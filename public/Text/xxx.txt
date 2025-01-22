@@ -1,0 +1,924 @@
+templatePejabat.php
+
+
+
+
+
+
+grafik_peserta.php
+
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-blue">Grafik Jumlah Peserta</h1>
+
+    <form method="GET" action="" class="form-inline mb-3">
+        <div class="form-group mr-2">
+            <label for="tahun" class="mr-2">Tahun:</label>
+            <select name="tahun" id="tahun" class="form-control">
+                <?php for ($i = 2020; $i <= date('Y'); $i++): ?>
+                    <option value="<?= $i; ?>" <?= ($i == $tahun) ? 'selected' : ''; ?>>
+                        <?= $i; ?>
+                    </option>
+                <?php endfor; ?>
+            </select>
+        </div>
+
+        <div class="form-group mr-2">
+            <label for="bulan" class="mr-2">Bulan:</label>
+            <select name="bulan" id="bulan" class="form-control">
+                <option value="">Semua Bulan</option>
+                <?php for ($b = 1; $b <= 12; $b++): ?>
+                    <option value="<?= $b; ?>" <?= ($b == $bulan) ? 'selected' : ''; ?>>
+                        <?= date('F', mktime(0, 0, 0, $b, 1)); ?>
+                    </option>
+                <?php endfor; ?>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Tampilkan</button>
+    </form>
+
+    <canvas id="pesertaChart" width="400" height="200"></canvas>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+<?php
+
+namespace App\Controllers;
+use App\Models\kegiatanModel;
+use App\Models\jurusanModel;
+use App\Models\prodiModel;
+use App\Models\unitModel;
+
+class KegiatanController extends BaseController
+{
+    protected $kegiatanModel;
+    protected $jurusanModel;
+    protected $prodiModel;
+    protected $unitModel;
+
+    public function __construct()
+    {
+        $this->kegiatanModel = new kegiatanModel();
+        $this->jurusanModel = new jurusanModel();  // Perbaiki inisialisasi
+        $this->prodiModel = new prodiModel();      // Perbaiki inisialisasi
+        $this->unitModel = new unitModel();        // Perbaiki inisialisasi
+    }
+
+    public function index()
+    {
+        $perPage = 5; // Jumlah data per halaman
+        $keyword = $this->request->getGet('keyword'); // Ambil input pencarian
+
+        if ($keyword) {
+            $kegiatan = $this->kegiatanModel->search($keyword, $perPage); // Cari data berdasarkan keyword
+        } else {
+            $kegiatan = $this->kegiatanModel->getPaginatedKegiatan($perPage); // Data normal tanpa pencarian
+        }
+
+        $data = [
+            'title' => 'Halaman Kegiatan',
+            'kegiatan' => $kegiatan,
+            'pager' => $this->kegiatanModel->pager, // Objek pager untuk pagination
+            'keyword' => $keyword, // Simpan keyword untuk dioper ke view
+        ];
+
+        return view('kegiatan/index', $data);
+    }
+
+    public function create()
+    {
+        $data = [
+            'title' => 'Halaman Kegiatan',
+            'kegiatan' => $this->kegiatanModel->find(),
+            'jurusan' => $this->jurusanModel->findAll(),
+            'prodi' => $this->prodiModel->findAll(),
+            'unit' => $this->unitModel->findAll(),
+        ];
+
+        return view('kegiatan/create', $data);
+    }
+
+    public function store()
+    {
+        if (!$validation->withRequest($this->request)->run()) {
+    return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+}
+
+    // Proses upload gambar
+    $poster = $this->request->getFile('poster');
+
+    if ($poster->isValid() && !$poster->hasMoved()) {
+        // Generate nama file unik
+        $newName = $poster->getRandomName();
+        $poster->move(ROOTPATH . 'public/assets/images', $newName);
+    } else {
+        return redirect()->back()->withInput()->with('error', 'Gagal mengunggah poster.');
+    }
+
+
+    // Simpan data ke database dengan nama file poster
+    $this->kegiatanModel->save([
+        'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+        'poster' => $newName,  // Simpan nama file gambar di database
+        'deskripsi' => $this->request->getPost('deskripsi'),
+        'tanggal_mulai' => $tanggalMulai,
+        'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+        'lokasi' => $this->request->getPost('lokasi'),
+        'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+        'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+        'peserta' => $this->request->getPost('peserta'),
+        'nara_hubung' => $this->request->getPost('nara_hubung'),
+        'penyelenggara' => $this->request->getPost('penyelenggara'),
+        'jenis_penyelenggara' => $this->request->getPost('jenis_penyelenggara'),
+        'detail_penyelenggara' => $this->request->getPost('detail_penyelenggara'),
+        'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan')
+    ]);
+
+
+    return redirect()->to('/kegiatan')->with('success', 'Data berhasil ditambahkan.');
+    }
+}
+
+
+
+
+Model
+
+<?php
+
+namespace App\Models;
+
+use CodeIgniter\Model;
+
+class KegiatanModel extends Model
+{
+    protected $table = 'kegiatan';
+    protected $primaryKey = 'id_kegiatan';
+    protected $allowedFields = [
+        'nama_kegiatan',
+        'poster',
+        'deskripsi',
+        'tanggal_mulai',
+        'tanggal_selesai',
+        'lokasi',
+        'jenis_kegiatan',
+        'penanggung_jawab',
+        'peserta',
+        'nara_hubung',
+        'penyelenggara',
+        'jenis_penyelenggara',
+        'detail_penyelenggara',
+        'waktu_kegiatan'
+    ];
+
+
+    public function getPaginatedKegiatan($perPage)
+    {
+        return $this->orderBy('tanggal_mulai', 'DESC')->paginate($perPage, 'kegiatan');
+    }
+
+    public function search($keyword, $perPage)
+    {
+        return $this->like('nama_kegiatan', $keyword)
+            ->orLike('deskripsi', $keyword)
+            ->orLike('tanggal_mulai', $keyword)
+            ->orLike('tanggal_selesai', $keyword)
+            ->orLike('lokasi', $keyword)
+            ->orLike('jenis_kegiatan', $keyword)
+            ->orLike('penanggung_jawab', $keyword)
+            ->orLike('peserta', $keyword)
+            ->orLike('nara_hubung', $keyword)
+            ->orLike('penyelenggara', $keyword)
+            ->orLike('jenis_penyelenggara', $keyword)
+            ->orLike('detail_penyelenggara', $keyword)
+            ->orLike('waktu_kegiatan', $keyword)
+            ->orderBy('tanggal_mulai', 'DESC') // Tambahkan pengurutan di sini
+            ->paginate($perPage, 'kegiatan');
+    }
+}
+
+
+
+
+Index
+
+<?= $this->extend('template/template'); ?>
+
+<?= $this->section('content'); ?>
+<div class="container-fluid">
+    <h1 class="h3 mb-4 font-weight-bold text-blue">Halaman Kegiatan</h1>
+</div>
+
+<div class="container-fluid">
+    <?php if (session()->getFlashdata('success')): ?>
+        <div class="alert alert-success mt-3">
+            <?= session()->getFlashdata('success'); ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- Form Pencarian -->
+    <form action="/kegiatan" method="get" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="keyword" class="form-control bg-white shadow-sm border-0 small" placeholder="Cari data kegiatan..." value="<?= $keyword ?? ''; ?>">
+            <button type="submit" class="btn btn-primary">Cari</button>
+            <a href="/kegiatan" class="btn btn-secondary">Reset</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped shadow-sm">
+            <thead style="background-color: #07294d; color: white; font-size: 14px; text-align:center;">
+                <tr>
+                    <th>No</th>
+                    <th>Nama Kegiatan</th>
+                    <th>Poster</th>
+                    <th colspan="2">Deskripsi Kegiatan</th> <!-- Mengambil 2 kolom -->
+                    <th>Tanggal Mulai</th>
+                    <th>Tanggal Selesai</th>
+                    <th>Lokasi</th>
+                    <th>Jenis Kegiatan</th>
+                    <th>Penanggung Jawab</th>
+                    <th>Peserta</th>
+                    <th>Nara Hubung</th>
+                    <th>Penyelenggara</th>
+                    <th>Jenis Penyelenggara</th>
+                    <th>Detail Penyelenggara</th>
+                    <th>Waktu Kegiatan</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody style="background-color: white; font-size: 14px; color:black;">
+                <?php if (count($kegiatan) > 0): ?>
+                    <?php $no = 1 + (5 * ($pager->getCurrentPage('kegiatan') - 1)); ?>
+                    <?php foreach ($kegiatan as $index => $k): ?>
+                        <tr>
+                            <td class="text-center"><?= $index + 1 ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 100px;"><?= esc($k['nama_kegiatan']) ?></td>
+                            <td class="text-center">
+                                <?php if (!empty($k['poster'])): ?>
+                                    <img src="<?= base_url('assets/images/' . $k['poster']) ?>" alt="Poster" style="width: 100px; height: auto;">
+                                <?php else: ?>
+                                    <span class="text-muted">Tidak ada poster</span>
+                                <?php endif; ?>
+                            </td>
+                            <td colspan="2" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px;">
+                                <?= esc($k['deskripsi']) ?>
+                            </td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 150px;"><?= esc($k['tanggal_mulai']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 150px;"><?= esc($k['tanggal_selesai']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 150px;"><?= esc($k['lokasi']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 150px;"><?= esc($k['jenis_kegiatan']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 250px;"><?= esc($k['penanggung_jawab']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 150px;"><?= esc($k['peserta']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 150px;"><?= esc($k['nara_hubung']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 150px;"><?= esc($k['penyelenggara']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 200px;"><?= esc($k['jenis_penyelenggara']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 200px;"><?= esc($k['detail_penyelenggara']) ?></td>
+                            <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 150px;"><?= esc($k['waktu_kegiatan']) ?></td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-around">
+                                    <a href="/kegiatan/edit/<?= esc($k['id_kegiatan']) ?>" class="btn btn-success btn-sm me-2">Edit</a>
+                                    <a href="/kegiatan/delete/<?= esc($k['id_kegiatan']) ?>" class="btn btn-danger btn-sm" onclick="return confirm('Yakin Ingin Menghapus data ini?')">Hapus</a>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="7" class="text-center">Data tidak ditemukan.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <a href="/kegiatan/create" class="btn btn-primary btn-sm">Tambah Data</a>
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="<?= base_url('kegiatan/download-pdf') ?>" class="btn btn-danger btn-sm m-2">Download PDF</a>
+            <a href="<?= base_url('kegiatan/download-excel') ?>" class="btn btn-success btn-sm">Download Excel</a>
+        </div>
+        <div>
+            <?= $pager->links('kegiatan', 'pagination_temp') ?>
+        </div>
+
+
+    </div>
+</div>
+</div>
+<?= $this->endSection(); ?>
+
+
+
+create
+
+<?= $this->extend('template/template'); ?>
+
+<?= $this->section('content'); ?>
+<div class="container mt-5">
+    <div class="content">
+        <h1 class="h3 mb-4 font-weight-bold text-gray-800">Tambah Kegiatan</h1>
+
+        <!-- Menampilkan error jika ada -->
+        <?php if (session()->getFlashdata('errors')): ?>
+            <div class="alert alert-danger">
+                <ul>
+                    <?php foreach (session()->getFlashdata('errors') as $error): ?>
+                        <li><?= esc($error); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <!-- Form untuk menambah kegiatan -->
+        <form action="/kegiatan/store" method="POST" enctype="multipart/form-data">
+            <?= csrf_field(); ?>
+            <div class="row bg-white shadow-sm p-4 rounded">
+                <!-- Kolom Kiri -->
+                <div class="col-md-6">
+                    <!-- Nama Kegiatan -->
+                    <div class="mb-3">
+                        <label for="nama_kegiatan" class="form-label">Nama Kegiatan</label>
+                        <input type="text" class="form-control" id="nama_kegiatan" name="nama_kegiatan" value="<?= old('nama_kegiatan'); ?>" placeholder="Masukkan Nama Kegiatan">
+                    </div>
+
+                    <!-- Deskripsi Kegiatan -->
+                    <div class="mb-3">
+                        <label for="deskripsi" class="form-label">Deskripsi Kegiatan</label>
+                        <textarea class="form-control costum-area" id="deskripsi" name="deskripsi" rows="3" placeholder="Masukkan Deskripsi Kegiatan"><?= old('deskripsi'); ?></textarea>
+                    </div>
+
+                    <!-- Tanggal Mulai -->
+                    <div class="mb-3">
+                        <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                        <input type="date" class="form-control" id="tanggal_mulai" name="tanggal_mulai" value="<?= old('tanggal_mulai'); ?>">
+                    </div>
+
+                    <!-- Tanggal Selesai -->
+                    <div class="mb-3">
+                        <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                        <input type="date" class="form-control" id="tanggal_selesai" name="tanggal_selesai" value="<?= old('tanggal_selesai'); ?>">
+                    </div>
+
+                    <!-- Lokasi -->
+                    <div class="mb-3">
+                        <label for="lokasi" class="form-label">Lokasi</label>
+                        <input type="text" class="form-control" id="lokasi" name="lokasi" value="<?= old('lokasi'); ?>" placeholder="Masukkan Lokasi">
+                    </div>
+
+                    <!-- Poster -->
+                    <div class="mb-3">
+                        <label for="poster" class="form-label">Unggah Poster</label>
+                        <input type="file" class="form-control" id="poster" name="poster" accept="image/*">
+                    </div>
+                </div>
+
+                <!-- Kolom Kanan -->
+                <div class="col-md-6">
+                    <!-- Waktu Kegiatan -->
+                    <div class="mb-3">
+                        <label for="waktu_kegiatan" class="form-label">Waktu Kegiatan</label>
+                        <input type="text" class="form-control" id="waktu_kegiatan" name="waktu_kegiatan" value="<?= old('waktu_kegiatan'); ?>" placeholder="Waktu mulai - selesai kegiatan">
+                    </div>
+
+                    <!-- Nara Hubung -->
+                    <div class="mb-3">
+                        <label for="nara_hubung" class="form-label">Nara Hubung</label>
+                        <input type="text" class="form-control" id="nara_hubung" name="nara_hubung" value="<?= old('nara_hubung'); ?>" placeholder="Masukkan Nara Hubung">
+                    </div>
+
+                    <!-- Penanggung Jawab -->
+                    <div class="mb-3">
+                        <label for="penanggung_jawab" class="form-label">Penanggung Jawab</label>
+                        <input type="text" class="form-control" id="penanggung_jawab" name="penanggung_jawab" value="<?= old('penanggung_jawab'); ?>" placeholder="Masukkan Penanggung Jawab">
+                    </div>
+
+                    <!-- Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="penyelenggara" class="form-label">Penyelenggara</label> <br>
+                        <select class="form-control" id="penyelenggara" name="penyelenggara">
+                            <option value="">-- Pilih Penyelenggara --</option>
+                            <option value="mahasiswa" <?= old('penyelenggara') === 'mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="direktur" <?= old('penyelenggara') === 'direktur' ? 'selected' : ''; ?>>Direktur</option>
+                        </select>
+                    </div>
+
+                    <!-- Jenis Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="jenis_penyelenggara" class="form-label">Jenis Penyelenggara</label> <br>
+                        <select class="form-control" id="jenis_penyelenggara" name="jenis_penyelenggara">
+                            <option value="">-- Pilih Jenis Penyelenggara --</option>
+                            <option value="jurusan" <?= old('jenis_penyelenggara') === 'jurusan' ? 'selected' : ''; ?>>Jurusan</option>
+                            <option value="prodi" <?= old('jenis_penyelenggara') === 'prodi' ? 'selected' : ''; ?>>Prodi</option>
+                            <option value="unit" <?= old('jenis_penyelenggara') === 'unit' ? 'selected' : ''; ?>>Unit</option>
+                        </select>
+                    </div>
+
+                    <!-- dinamis dropdown -->
+                    <div class="mb-3" id="dropdown-dinamis" style="display: none;">
+                        <label for="dropdown_pilihan" class="form-label" id="label-dropdown"></label> <br>
+                        <select class="form-control" id="detail_penyelenggara" name="detail_penyelenggara">
+                            <option value="">-- Pilih --</option>        
+                        </select>
+
+                       
+
+                    </div>
+
+                    <!-- Peserta -->
+                    <div class="mb-3">
+                        <label for="peserta" class="form-label">Peserta</label> <br>
+                        <select class="form-control" id="peserta" name="peserta">
+                            <option value="">-- Pilih Peserta --</option>
+                            <option value="mahasiswa" <?= old('peserta') === 'mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="karyawan" <?= old('peserta') === 'karyawan' ? 'selected' : ''; ?>>Karyawan</option>
+                            <option value="umum" <?= old('peserta') === 'umum' ? 'selected' : ''; ?>>Umum</option>
+                            <option value="pejabat" <?= old('peserta') === 'pejabat' ? 'selected' : ''; ?>>Pejabat</option>
+                        </select>
+                    </div>
+
+                    <!-- Jenis Kegiatan -->
+                    <div class="mb-3">
+                        <label for="jenis_kegiatan" class="form-label">Jenis Kegiatan</label> <br>
+                        <select class="form-control" id="jenis_kegiatan" name="jenis_kegiatan">
+                            <option value="">-- Pilih Jenis Kegiatan --</option>
+                            <option value="Akademik" <?= old('jenis_kegiatan') === 'Akademik' ? 'selected' : ''; ?>>Akademik</option>
+                            <option value="Non Akademik" <?= old('jenis_kegiatan') === 'Non Akademik' ? 'selected' : ''; ?>>Non Akademik</option>
+                            <option value="Umum" <?= old('jenis_kegiatan') === 'Umum' ? 'selected' : ''; ?>>Umum</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Button Submit -->
+            <button type="submit" class="btn btn-primary mt-3">Simpan</button>
+            <a href="/kegiatan" class="btn btn-secondary mt-3">Kembali</a>
+        </form>
+    </div>
+</div>
+
+<style>
+    .costum-area {
+        width: 100%;
+        resize: none;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const jurusan = <?= json_encode($jurusan ?? []); ?>;
+        const prodi = <?= json_encode($prodi ?? []); ?>;
+        const unit = <?= json_encode($unit ?? []); ?>;
+
+        document.getElementById('jenis_penyelenggara').addEventListener('change', function () {
+            const penyelenggara = document.getElementById('penyelenggara').value;
+            const jenisPenyelenggara = this.value;
+            const dropdownDinamis = document.getElementById('dropdown-dinamis');
+            const dropdownPilihan = document.getElementById('detail_penyelenggara');
+            const labelDropdown = document.getElementById('label-dropdown');
+
+            // Kosongkan dropdown sebelumnya
+            dropdownPilihan.innerHTML = '<option value="">-- Pilih --</option>';
+
+            if (penyelenggara === 'mahasiswa' && jenisPenyelenggara === 'jurusan') {
+                labelDropdown.innerText = 'Pilih Jurusan';
+                jurusan.forEach(item => {
+                    dropdownPilihan.innerHTML += `<option value="${item.id_jurusan}">${item.nama_jurusan}</option>`;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else if (penyelenggara === 'mahasiswa' && jenisPenyelenggara === 'prodi') {
+                labelDropdown.innerText = 'Pilih Prodi';
+                prodi.forEach(item => {
+                    dropdownPilihan.innerHTML += `<option value="${item.id_prodi}">${item.nama_prodi}</option>`;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else if (penyelenggara === 'direktur' && jenisPenyelenggara === 'unit') {
+                labelDropdown.innerText = 'Pilih Unit';
+                unit.forEach(item => {
+                    dropdownPilihan.innerHTML += `<option value="${item.id_unit}">${item.nama_unit}</option>`;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else {
+                dropdownDinamis.style.display = 'none';
+            }
+        });
+    });
+</script>
+
+<?= $this->endSection(); ?>
+
+
+
+
+
+
+
+
+
+
+pesan yang ada ditemplate
+ <script>
+    function loadDetailPenyelenggara(jenis) {
+        let selectList = document.getElementById('detail_penyelenggara');
+        selectList.innerHTML = ''; // Clear previous options
+
+        fetch(`<?= site_url('kegiatan/getPenyelenggaraData') ?>?jenis_penyelenggara=${jenis}`)
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(item => {
+                    let option = document.createElement('option');
+                    option.value = item.ID_Jurusan || item.ID_Unit || item.ID_Prodi; // Menyesuaikan ID untuk jurusan/unit/prodi
+                    option.textContent = item.nama;
+                    selectList.appendChild(option);
+                });
+            });
+    }
+
+    // Trigger load when the page loads to ensure it's populated for the default value
+    window.onload = function() {
+        loadDetailPenyelenggara(document.getElementById('jenis_penyelenggara').value);
+    };
+</script>
+
+
+
+
+
+
+
+
+saya mempunyai tabel kegiatan yaitu 
+
+id_kegiatan INT Primary key auto increment
+nama_kegiatan VARCHAR(255)
+poster VARCHAR(255)
+video VARCHAR(255)
+deskripsi TEXT
+tanggal_mulai DATE
+tanggal_selesai DATE
+waktu_kegiatan VARCHAR(100)
+lokasi VARCHAR(255)
+jenis_kegiatan ENUM(Akademik, Non Akademik, Umum)
+penanggung_jawab VARCHAR(255)
+peserta ENUM(mahasiswa, karyawan, umum, pejabat)
+nara_hubung VARCHAR(255)
+penyelenggara ENUM(mahasiswa, direktur)
+jenis_penyelenggara ENUM(jurusan, prodi, unit)
+detail_penyelenggara INT
+status ENUM(belum dimulai, sedang dilaksanakan, sudah selesai)
+disetujui ENUM(pending, disetujui, ditolak) default pending
+keterangan text
+created at timestamp
+updated at timestamp
+
+
+itu kan ketika data kegiatan tersebut akan ditampilkan di tampilan pengunjung atau user biasa dalam bentuk sebuah Card. Nah saya akan ceritakan sedikit tentang konsep website saya. website saya ini ada 2 hak akses yaitu Admin Pembuat kegiatan dan User.
+
+Admin yaitu orang yang mengelola Dashboard dan kodingan bisa dibilang pegang kendali penuh, Pembuat kegiatan yaitu orang yang bisa membuat kegiatan tetapi harus melakukan sebuah login atau bikin akun dulu biar bisa buat kegiatan, User yaitu orang biasa yang hanya bisa liat data kegiatan ditampilan pengunjung.
+
+Nah saya punya ide seperti ini, jadi ketika hak akses "pembuat" itu udah daftar dan login, ia akan diarahkan ke dashboard milik khusus hak akses Pembuat. Nah disana Pembuat hanya bisa membuat kegiatan aja. Ketika Pembuat membuat sebuah kegiatan dan ia berhasil mengsubmit data tersebut. Data kegiatan baru akan terkirim ke dashboard Admin dan akan langsung terupload ke tampilan pengunjung dalam bentuk Card. Nah kalau seperti itu menurut saya bisa dibilang gak bagus yah, soalnya kalau ada orang yang iseng atau gak bertanggung jawab akan asal membuat kegiatan. oleh karena itu saya punya solusinya, yaitu saya ingin menambahkan sebuah proses persetujuan. Jadi ketik si "Pembuat" membuat sebuah kegiatan baru dan mengsubmit data tersebut, nah tetapi data kegiatan yang ia buat dan kirimkan itu statusnya masih Pending dan perlu persetujuan dari Admin. Oleh karena itu saya harus menambah field kolom baru di tabel kegiatan yaitu Status, jadinya seperti ini : 
+
+ tipe data Enum (Pending, Sudah disetujui, sudah selesai, sedang dilaksanakan) untuk default nya yaitu Pending
+
+
+Jadi pas si Pembuat mengirim data kegiatan baru itu statusnya pasti pending dan belum terupload ke tampilan pengunjung jadi harus nunggu persetujuan di Admin. nah kan data kegiatan nya bakal muncul di dashboard Admin. nah nanti Admin akan memberi persetujuan dengan cara mengedit kolom data kegiatan yang tadi dikirmkan oleh si Pembuat. Nanti Admin mengedit di kolom field Status dengan mengganti Pending dengan Sudah disetujui dan simpan. Nah setelah data yang berstatus "Sudah disetujui" akan langsung terupload ke tampilan ke pengunjung. Kalau seperti itu mau orang iseng atau apalah gak akan bisa membuat kegiatan dengan sembarangan. 
+
+
+Jadi kalau mudah nya seperti ini : 
+
+Pembuat login -> buat kegiatan dan submit -> data terkirim ke Dashboard Admin dalam status Pending -> Admin memberi persetujuan dengan cara mengedit kolom status dari pending ke sudah disetujui -> data yang status "sudah di setujui" akan langsung terupload ke tampilan pengunjung.
+
+
+jadi bagaimana cara membuat seperti itu dari mu saya menggunakan PHP, CodeIgniter 4 Via Composer dan Bootstrap.lai alur dan logika nya, apa bisa kamu membantu saya dengan sangat mohon. Untuk pembuatannya saya menggunaakan 
+
+
+
+Ouh iyah sekalian juga aku juga mau nanyain ini ke kamu, kita bagi jadi 2 kategori pembahasan ya biar gak bingung nanti
+
+1. Pembahasan mengenai approve admin ke pembuat
+2. Pembahasan mengenai keterbatasan hak akses
+
+
+nah tadi kita membahas pembahasan mengenai pembahasan pertama. Sekarang saya ingin masuk ke pembahasan kedua yaitu, keterbatasan hak akses.
+
+untuk tabel users seperti ini : 
+
+id_users
+username
+email
+password
+level enum(admin, pembuat) karena pengunjung itu hanya bisa liat aja jadi gak butuh login dan buat akun, kolom Level akan dijadikan sebagai role
+
+Nah jadi bagaimana cara nya agar misalnya kita login sebagai admin dan masuk ke dashboard khusus Admin, nah bagaimana cara agar admin tidak bisa mengakses dashboard pembuat dari jalur URL atau routesnya. kan ini website saya belum pake hak keterbatasan, jadi ketika saya login sebagai Admin saya masih bisa mengakses dashbord Pembuat dengan cara mengubah nama URL contohnya seperti ini : localhost:8080/dashboard-Admin/index nah saya masih bisa akses ke dashboard pembuat dengan cara mengganti alamat URL nya seperti ini localhost:8080/dashboard-pembuat/index. Saya ingin agar si admin tidak bisa mengakses dashboard hak akses lainnya lewat alamat URL jadi ada sebuah batasan gitu.
+
+
+
+
+
+
+jangan ada yang utak atik ada hanca 
+
+
+
+
+
+
+KegiatanController
+<?php
+namespace App\Controllers;
+
+use App\Models\KegiatanModel;
+
+class KegiatanController extends BaseController
+{
+    public function index()
+    {
+        $model = new KegiatanModel();
+
+        // Ambil filter dari request
+        $tahun = $this->request->getVar('tahun') ?? date('Y');
+        $bulan = $this->request->getVar('bulan') ?? date('m');
+        $kategori = $this->request->getVar('kategori') ?? 'total';
+        $filter = $this->request->getVar('filter') ?? null;
+
+        // Data default untuk dropdown bulan dan tahun
+        $data['bulan'] = range(1, 12);
+        $data['tahun'] = range(2020, date('Y'));
+
+        // Ambil data sesuai kategori
+        switch ($kategori) {
+            case 'peserta':
+                $data['grafik'] = $model->getGrafikByPeserta($bulan, $tahun, $filter);
+                break;
+            case 'penyelenggara':
+                $data['grafik'] = $model->getGrafikByPenyelenggara($bulan, $tahun, $filter);
+                break;
+            default:
+                $data['grafik'] = $model->getGrafikTotal($bulan, $tahun);
+                break;
+        }
+
+        // Data untuk ditampilkan di view
+        $data['kategori'] = $kategori;
+        $data['filter'] = $filter;
+
+        return view('kegiatan/index', $data);
+    }
+}
+
+
+kegiatanModel
+namespace App\Models;
+
+use CodeIgniter\Model;
+
+class KegiatanModel extends Model
+{
+    protected $table = 'kegiatan';
+
+    public function getGrafikTotal($bulan, $tahun)
+    {
+        return $this->select("WEEK(tanggal_mulai) as minggu, COUNT(*) as total")
+                    ->where("YEAR(tanggal_mulai)", $tahun)
+                    ->where("MONTH(tanggal_mulai)", $bulan)
+                    ->groupBy("minggu")
+                    ->findAll();
+    }
+
+    public function getGrafikByPeserta($bulan, $tahun, $peserta)
+    {
+        return $this->select("WEEK(tanggal_mulai) as minggu, COUNT(*) as total")
+                    ->where("YEAR(tanggal_mulai)", $tahun)
+                    ->where("MONTH(tanggal_mulai)", $bulan)
+                    ->where("peserta", $peserta)
+                    ->groupBy("minggu")
+                    ->findAll();
+    }
+
+    public function getGrafikByPenyelenggara($bulan, $tahun, $penyelenggara)
+    {
+        return $this->select("WEEK(tanggal_mulai) as minggu, COUNT(*) as total")
+                    ->where("YEAR(tanggal_mulai)", $tahun)
+                    ->where("MONTH(tanggal_mulai)", $bulan)
+                    ->where("penyelenggara", $penyelenggara)
+                    ->groupBy("minggu")
+                    ->findAll();
+    }
+}
+
+
+
+view index2
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grafik Kegiatan</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="container mt-5">
+    <h1 class="text-center">Grafik Kegiatan</h1>
+    <form method="GET" action="">
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="kategori" class="form-label">Kategori</label>
+                <select id="kategori" name="kategori" class="form-select">
+                    <option value="total" <?= $kategori === 'total' ? 'selected' : '' ?>>Total Kegiatan</option>
+                    <option value="peserta" <?= $kategori === 'peserta' ? 'selected' : '' ?>>Peserta</option>
+                    <option value="penyelenggara" <?= $kategori === 'penyelenggara' ? 'selected' : '' ?>>Penyelenggara</option>
+                </select>
+            </div>
+            <?php if ($kategori === 'peserta'): ?>
+                <div class="col-md-3">
+                    <label for="filter" class="form-label">Peserta</label>
+                    <select id="filter" name="filter" class="form-select">
+                        <option value="mahasiswa" <?= $filter === 'mahasiswa' ? 'selected' : '' ?>>Mahasiswa</option>
+                        <option value="pejabat" <?= $filter === 'pejabat' ? 'selected' : '' ?>>Pejabat</option>
+                        <option value="karyawan" <?= $filter === 'karyawan' ? 'selected' : '' ?>>Karyawan</option>
+                        <option value="umum" <?= $filter === 'umum' ? 'selected' : '' ?>>Umum</option>
+                    </select>
+                </div>
+            <?php elseif ($kategori === 'penyelenggara'): ?>
+                <div class="col-md-3">
+                    <label for="filter" class="form-label">Penyelenggara</label>
+                    <select id="filter" name="filter" class="form-select">
+                        <option value="mahasiswa" <?= $filter === 'mahasiswa' ? 'selected' : '' ?>>Mahasiswa</option>
+                        <option value="direktur" <?= $filter === 'direktur' ? 'selected' : '' ?>>Direktur</option>
+                    </select>
+                </div>
+            <?php endif; ?>
+            <div class="col-md-3">
+                <label for="bulan" class="form-label">Bulan</label>
+                <select id="bulan" name="bulan" class="form-select">
+                    <?php foreach ($bulan as $b): ?>
+                        <option value="<?= $b ?>" <?= $b == date('m') ? 'selected' : '' ?>><?= $b ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="tahun" class="form-label">Tahun</label>
+                <select id="tahun" name="tahun" class="form-select">
+                    <?php foreach ($tahun as $t): ?>
+                        <option value="<?= $t ?>" <?= $t == date('Y') ? 'selected' : '' ?>><?= $t ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Tampilkan</button>
+    </form>
+
+    <canvas id="grafikChart" class="mt-4"></canvas>
+</div>
+
+<script>
+    const ctx = document.getElementById('grafikChart').getContext('2d');
+    const data = <?= json_encode($grafik) ?>;
+    const labels = data.map(item => `Minggu ${item.minggu}`);
+    const values = data.map(item => item.total);
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Jumlah Kegiatan',
+                data: values,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
+
+
+routes
+$routes->get('/kegiatan', 'KegiatanController::index');
+
+
+
+
+
+
+
+
+//Perbaiki controlller kegiatan oleh Diman 
+public function store()
+{
+    
+    // Menggunakan validation service untuk validasi
+    $validation = \Config\Services::validation();
+
+
+    $tanggalMulai = $this->request->getPost('tanggal_mulai');
+$existingKegiatan = $this->kegiatanModel
+    ->where('tanggal_mulai', $tanggalMulai)
+    ->first();
+
+if ($existingKegiatan) {
+    $validation->setError('tanggal_mulai', 'Kegiatan pada tanggal ' . $tanggalMulai . ' sudah ada. Silakan pilih tanggal lain.');
+}
+
+if (!$validation->withRequest($this->request)->run()) {
+    return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+}
+
+    // Proses upload gambar
+    $poster = $this->request->getFile('poster');
+
+    if ($poster->isValid() && !$poster->hasMoved()) {
+        // Generate nama file unik
+        $newName = $poster->getRandomName();
+        $poster->move(ROOTPATH . 'public/assets/images', $newName);
+    } else {
+        return redirect()->back()->withInput()->with('error', 'Gagal mengunggah poster.');
+    }
+
+     // Proses upload video
+     $video = $this->request->getFile('video');
+     $videoName = null;
+     if ($video && $video->isValid() && !$video->hasMoved()) {
+         $videoName = $video->getRandomName();
+         $video->move(ROOTPATH . 'public/assets/videos', $videoName);
+     }
+ 
+     // Simpan data ke database
+     $this->kegiatanModel->save([
+         'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+         'poster' => $newName, // Nama file poster
+         'video' => $videoName,   // Nama file video (null jika tidak diupload)
+         'deskripsi' => $this->request->getPost('deskripsi'),
+         'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+         'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+         'lokasi' => $this->request->getPost('lokasi'),
+         'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+         'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+         'peserta' => $this->request->getPost('peserta'),
+         'nara_hubung' => $this->request->getPost('nara_hubung'),
+         'penyelenggara' => $this->request->getPost('penyelenggara'),
+         'jenis_penyelenggara' => $this->request->getPost('jenis_penyelenggara'),
+         'detail_penyelenggara' => $this->request->getPost('detail_penyelenggara'),
+         'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan'),
+         'status' => $this->request->getPost('status')
+     ]);
+
+
+    return redirect()->to('/kegiatan')->with('success', 'Data berhasil ditambahkan.');
+
+}
+
+
+
+public function update($id)
+    {
+        $validation = \Config\Services::validation();
+
+        // Validasi
+        if (!$validation->withRequest($this->request)->run()) {
+            // Mengarahkan kembali dengan error jika validasi gagal
+            return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+        }
+
+        // Update data kegiatan
+        $kegiatanModel = new KegiatanModel();
+        $data = [
+            'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+            'poster' => $newName,
+            'video' => $videoName,
+            'deskripsi' => $this->request->getPost('deskripsi'),
+            'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+            'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+            'lokasi' => $this->request->getPost('lokasi'),
+            'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+            'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+            'peserta' => $this->request->getPost('peserta'),
+            'nara_hubung' => $this->request->getPost('nara_hubung'),
+            'penyelenggara' => $this->request->getPost('penyelenggara'),
+            'jenis_penyelenggara' => $this->request->getPost('jenis_penyelenggara'),
+            'detail_penyelenggara' => $this->request->getPost('detail_penyelenggara'),
+            'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan'),
+            'status' => $this->request->getPost('status')
+        ];
+
+        $kegiatanModel->update($id, $data);
+        return redirect()->to('/kegiatan')->with('success', 'Data kegiatan berhasil diperbarui!');
+    }

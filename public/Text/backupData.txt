@@ -1,0 +1,1588 @@
+//Diman
+<?php
+
+namespace App\Controllers;
+
+use App\Models\UserModel;
+//nabil
+use App\Models\JurusanModel; // Tambahkan ini
+use App\Models\ProdiModel;  // Tambahkan ini
+use App\Models\UnitModel;  // Tambahkan ini
+use App\Models\LogAktivitasModel;   // Tambahkan ini
+use CodeIgniter\Controller;
+
+class AuthController extends Controller
+{
+    public function register()
+    {
+        // Load data jurusan dan prodi dari database
+        $jurusanModel = new JurusanModel();
+        $prodiModel = new ProdiModel();
+        $unitModel = new UnitModel();
+
+        $data['jurusan'] = $jurusanModel->findAll();
+        $data['prodi'] = $prodiModel->findAll();
+        $data['unit'] = $unitModel->findAll();
+
+        return view('auth/register', $data);
+    }
+
+   public function processRegister()
+{
+    $userModel = new UserModel();
+
+    $validation = $this->validate([
+        'username'      => 'required|min_length[3]|max_length[20]',
+        'email'         => 'required|valid_email|is_unique[users.email]',
+        'password'      => 'required|min_length[8]',
+        'role'          => 'required|in_list[Mahasiswa,Karyawan]',
+        'jenis_users'   => 'required',
+        'nama_lengkap'  => 'required',
+        'nim'           => 'permit_empty|numeric|min_length[8]|max_length[20]',
+        'nip'           => 'permit_empty|numeric|min_length[8]|max_length[20]',
+        'id_jurusan'    => 'permit_empty|is_natural',
+        'id_prodi'      => 'permit_empty|is_natural',
+        'id_unit'       => 'permit_empty|is_natural',
+    ]);
+    
+
+    if (!$validation) {
+        return redirect()->back()->withInput()->with('error', $this->validator->listErrors());
+    }
+
+    $data = [
+        'nama_lengkap'  => $this->request->getPost('nama_lengkap'),
+        'username'      => $this->request->getPost('username'),
+        'email'         => $this->request->getPost('email'),
+        'password'      => password_hash($this->request->getPost('password'), PASSWORD_BCRYPT),
+        'role'          => 'Pembuat',
+    ];
+    
+    if ($data['role'] === 'Mahasiswa') {
+        $data['nim'] = $this->request->getPost('nim');
+        $data['id_jurusan'] = $this->request->getPost('jurusan');
+        $data['id_prodi'] = $this->request->getPost('prodi');
+    }
+    
+    if ($data['role'] === 'Karyawan') {
+        $data['nip'] = $this->request->getPost('nip');
+        $jenisKaryawan = $this->request->getPost('jenis_karyawan');
+    
+        if ($jenisKaryawan === 'Jurusan') {
+            $data['id_jurusan'] = $this->request->getPost('jurusan');
+            $data['id_prodi'] = $this->request->getPost('prodi');
+        } elseif ($jenisKaryawan === 'Unit') {
+            $data['id_unit'] = $this->request->getPost('unit');
+        }
+    }
+    
+    $userModel->insert($data);
+    
+
+    return redirect()->to('/login')->with('success', 'Registrasi berhasil, silakan login!');
+}
+
+   public function getProdi($id_jurusan) {
+    $prodiModel = new \App\Models\ProdiModel();
+
+    // Pastikan menggunakan where() untuk mendapatkan Prodi berdasarkan jurusan
+    $prodi = $prodiModel->where('id_jurusan', $id_jurusan)->findAll();
+
+    if (count($prodi) > 0) {
+        return $this->response->setJSON($prodi);
+    } else {
+        return $this->response->setJSON([]);
+    }
+}
+
+public function login()
+{
+    return view('auth/login');
+}
+
+public function processLogin()
+{
+    $userModel = new UserModel();
+    $logModel = new LogAktivitasModel();
+    $email = $this->request->getPost('email');
+    $password = $this->request->getPost('password');
+
+    // Cek user berdasarkan email
+    $user = $userModel->where('email', $email)->first();
+
+    if ($user && password_verify($password, $user['password'])) {
+        // Set session
+        session()->set([
+            'id_users' => $user['id_users'],
+            'username' => $user['username'],
+            'role'     => $user['role'],
+            'isLoggedIn' => true,
+        ]);
+
+        // Catat log aktivitas login
+        $logModel->insert([
+            'id_users' => $user['id_users'],
+            'username' => $user['username'],
+            'role'     => $user['role'],
+            'aktivitas'=> 'Login ke sistem',
+        ]);
+
+        // Redirect ke dashboard berdasarkan role
+        return redirect()->to('/dashboard/' . strtolower($user['role']));
+    }
+
+    // Login gagal
+    return redirect()->back()->with('error', 'Login gagal!, silahkan cek Email atau Password barang kali ada yang salah');
+}
+
+public function logout()
+{
+    $session = session();
+    $logModel = new LogAktivitasModel();
+
+    // Catat log aktivitas logout
+    if ($session->has('id_users')) {
+        $logModel->insert([
+            'id_users' => $session->get('id_users'),
+            'username' => $session->get('username'),
+            'role'     => $session->get('role'),
+            'aktivitas'=> 'Logout dari sistem',
+        ]);
+    }
+
+    // Hapus session
+    $session->destroy();
+    return redirect()->to('/login');
+}
+}
+// end Diman
+
+
+
+
+
+//pembuatController Diman
+public function index_daftar_kegiatan_pembuat()
+{
+
+    if (session()->get('role') !== 'Pembuat') {
+        return view('errors/403'); // Tampilkan halaman Unauthorized
+    }
+
+    $perPage = 5; // Sesuaikan jumlah data per halaman
+    $keyword = $this->request->getGet('keyword'); // Ambil input pencarian
+    $kegiatan = null;
+
+    if ($keyword) {
+        $kegiatan = $this->pembuatModel->search($keyword, $perPage); // Cari data berdasarkan keyword
+    } else {
+        $kegiatan = $this->pembuatModel->getPaginatedKegiatan($perPage); // Data normal tanpa pencarian
+    }
+
+    // Ambil tanggal hari ini
+    $today = date('Y-m-d');
+
+    // Tentukan status kegiatan berdasarkan tanggal
+    foreach ($kegiatan as &$item) {
+        if ($item['disetujui'] === 'disetujui') {
+            if ($today < $item['tanggal_mulai']) {
+                $item['status'] = 'belum dimulai';
+            } elseif ($today >= $item['tanggal_mulai'] && $today <= $item['tanggal_selesai']) {
+                $item['status'] = 'sedang dilaksanakan';
+            } else {
+                $item['status'] = 'sudah selesai';
+            }
+        }
+    }
+
+    $data = [
+        'title' => 'Halaman Kegiatan',
+        'kegiatan' => $kegiatan, // Data kegiatan
+        'pager' => $this->pembuatModel->pager, // Objek pager untuk pagination
+        'keyword' => $keyword, // Simpan keyword untuk dioper ke view
+        'username' => $username = session()->get('username')
+    ];
+
+    return view('/pembuat/kegiatan', $data);
+}
+
+//end
+
+
+// Logika javascripy tambah data di pembuat terbaru
+<script>
+function handlePenyelenggaraChange() {
+    const penyelenggara = document.getElementById('penyelenggara').value;
+    const dynamicFields = document.getElementById('dynamic-fields');
+    dynamicFields.innerHTML = '';
+
+    if (penyelenggara === 'mahasiswa') {
+        <?php if ($user['jenis_users'] === 'mahasiswa') : ?>
+            dynamicFields.innerHTML = `
+                <div class="form-group">
+                    <label>Nama Lengkap</label>
+                    <input type="text" class="form-control" value="<?= $user['nama_lengkap']; ?>" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Jurusan</label>
+                    <input type="text" class="form-control" value="<?= $user['id_jurusan']; ?>" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Prodi</label>
+                    <input type="text" class="form-control" value="<?= $user['id_prodi']; ?>" readonly>
+                </div>
+            `;
+        <?php else : ?>
+            alert('Anda harus memilih sesuai jenis users Anda.');
+        <?php endif; ?>
+    } else if (penyelenggara === 'karyawan') {
+        <?php if ($user['jenis_users'] === 'karyawan') : ?>
+            dynamicFields.innerHTML = `
+                <div class="form-group">
+                    <label>Nama Lengkap</label>
+                    <input type="text" class="form-control" value="<?= $user['nama_lengkap']; ?>" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Unit</label>
+                    <input type="text" class="form-control" value="<?= $user['id_unit']; ?>" readonly>
+                </div>
+            `;
+        <?php else : ?>
+            alert('Anda harus memilih sesuai jenis users Anda.');
+        <?php endif; ?>
+    }
+}
+</script>
+
+//end
+
+
+
+
+
+kodingan tambah data yang lama atau default
+<?= $this->extend('template/templatePembuat'); ?>
+
+<?= $this->section('content'); ?>
+<div class="container-fluid mt-5">
+    <div class="content">
+        <h1 class="h3 mb-4 font-weight-bold text-gray-800">Tambah Kegiatan</h1>
+
+        <!-- Menampilkan error jika ada -->
+        <?php if (session()->getFlashdata('errors')): ?>
+            <div class="alert alert-danger">
+                <ul>
+                    <?php foreach (session()->getFlashdata('errors') as $error): ?>
+                        <li><?= esc($error); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <!-- Form untuk menambah kegiatan -->
+        <form action="/dashboard/pembuat/simpan" method="POST" enctype="multipart/form-data">
+            <?= csrf_field(); ?>
+            <div class="row bg-white shadow-sm p-4 rounded">
+                <!-- Kolom Kiri -->
+                <div class="col-md-6">
+                    <!-- Nama Kegiatan -->
+                    <div class="mb-3">
+                        <label for="nama_kegiatan" class="form-label">Nama Kegiatan</label>
+                        <input type="text" class="form-control" id="nama_kegiatan" name="nama_kegiatan" value="<?= old('nama_kegiatan'); ?>" placeholder="Masukkan Nama Kegiatan">
+                    </div>
+
+                    <!-- Deskripsi Kegiatan -->
+                    <div class="mb-3">
+                        <label for="deskripsi" class="form-label">Deskripsi Kegiatan</label>
+                        <textarea class="form-control costum-area" id="deskripsi" name="deskripsi" rows="3" placeholder="Masukkan Deskripsi Kegiatan"><?= old('deskripsi'); ?></textarea>
+                    </div>
+
+                    <!-- Tanggal Mulai -->
+                    <div class="mb-3">
+                        <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                        <input type="date" class="form-control" id="tanggal_mulai" name="tanggal_mulai" value="<?= old('tanggal_mulai'); ?>">
+                    </div>
+
+                    <!-- Tanggal Selesai -->
+                    <div class="mb-3">
+                        <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                        <input type="date" class="form-control" id="tanggal_selesai" name="tanggal_selesai" value="<?= old('tanggal_selesai'); ?>">
+                    </div>
+
+                    <!-- Lokasi -->
+                    <div class="mb-3">
+                        <label for="lokasi" class="form-label">Lokasi</label>
+                        <input type="text" class="form-control" id="lokasi" name="lokasi" value="<?= old('lokasi'); ?>" placeholder="Masukkan Lokasi">
+                    </div>
+
+                    <!-- Poster -->
+                    <div class="mb-3">
+                        <label for="poster" class="form-label">Unggah Poster</label>
+                        <input type="file" class="form-control" id="poster" name="poster" accept="image/*">
+                    </div>
+
+                    <!-- Video -->
+                    <div class="mb-3">
+                        <label for="video" class="form-label">Unggah Video</label>
+                        <input type="file" class="form-control" id="video" name="video" accept="video/*">
+                    </div>
+                </div>
+
+                <!-- Kolom Kanan -->
+                <div class="col-md-6">
+                    <!-- Waktu Kegiatan -->
+                    <div class="mb-3">
+                        <label for="waktu_kegiatan" class="form-label">Waktu Kegiatan</label>
+                        <input type="text" class="form-control" id="waktu_kegiatan" name="waktu_kegiatan" value="<?= old('waktu_kegiatan'); ?>" placeholder="Waktu mulai - selesai kegiatan">
+                    </div>
+
+                    <!-- Nara Hubung -->
+                    <div class="mb-3">
+                        <label for="nara_hubung" class="form-label">Nara Hubung</label>
+                        <input type="text" class="form-control" id="nara_hubung" name="nara_hubung" value="<?= old('nara_hubung'); ?>" placeholder="Masukkan Nara Hubung">
+                    </div>
+
+                    <!-- Penanggung Jawab -->
+                    <div class="mb-3">
+                        <label for="penanggung_jawab" class="form-label">Penanggung Jawab</label>
+                        <input type="text" class="form-control" id="penanggung_jawab" name="penanggung_jawab" value="<?= old('penanggung_jawab'); ?>" placeholder="Masukkan Penanggung Jawab">
+                    </div>
+
+                    <!-- Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="penyelenggara" class="form-label">Penyelenggara</label>
+                        <select class="form-control" id="penyelenggara" name="penyelenggara">
+                            <option value="">-- Pilih Penyelenggara --</option>
+                            <option value="Mahasiswa" <?= old('penyelenggara') === 'Mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="Karyawan" <?= old('penyelenggara') === 'Karyawan' ? 'selected' : ''; ?>>karyawan</option>
+                        </select>
+                    </div>
+
+                    <!-- Peserta -->
+                    <div class="mb-3">
+                        <label for="peserta" class="form-label">Peserta</label>
+                        <select class="form-control" id="peserta" name="peserta">
+                            <option value="">-- Pilih Peserta --</option>
+                            <option value="mahasiswa" <?= old('peserta') === 'mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="karyawan" <?= old('peserta') === 'karyawan' ? 'selected' : ''; ?>>Karyawan</option>
+                            <option value="umum" <?= old('peserta') === 'umum' ? 'selected' : ''; ?>>Umum</option>
+                            <option value="pejabat" <?= old('peserta') === 'pejabat' ? 'selected' : ''; ?>>Pejabat</option>
+                        </select>
+                    </div>
+
+                    <!-- Jenis Kegiatan -->
+                    <div class="mb-3">
+                        <label for="jenis_kegiatan" class="form-label">Jenis Kegiatan</label>
+                        <select class="form-control" id="jenis_kegiatan" name="jenis_kegiatan">
+                            <option value="">-- Pilih Jenis Kegiatan --</option>
+                            <option value="Akademik" <?= old('jenis_kegiatan') === 'Akademik' ? 'selected' : ''; ?>>Akademik</option>
+                            <option value="Non Akademik" <?= old('jenis_kegiatan') === 'Non Akademik' ? 'selected' : ''; ?>>Non Akademik</option>
+                            <option value="Umum" <?= old('jenis_kegiatan') === 'Umum' ? 'selected' : ''; ?>>Umum</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Button Submit -->
+            <div class="text-end mt-3">
+                <button type="submit" class="btn btn-primary">Simpan</button>
+                <a href="dashboard/pembuat/kegiatan" class="btn btn-secondary">Kembali</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .costum-area {
+        width: 100%;
+        resize: none;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+    const jurusan = <?= json_encode($jurusan ?? []); ?>;
+    const prodi = <?= json_encode($prodi ?? []); ?>;
+    const unit = <?= json_encode($unit ?? []); ?>;
+
+    const jenisPenyelenggara = document.getElementById('jenis_penyelenggara');
+    const penyelenggara = document.getElementById('penyelenggara');
+    const dropdownDinamis = document.getElementById('dropdown-dinamis');
+    const dropdownPilihan = document.getElementById('detail_penyelenggara');
+    const labelDropdown = document.getElementById('label-dropdown');
+
+    jenisPenyelenggara.addEventListener('change', function () {
+        const selectedPenyelenggara = penyelenggara.value;
+        const selectedJenis = this.value;
+
+        // Bersihkan dropdown sebelumnya
+        dropdownPilihan.innerHTML = '<option value="">-- Pilih --</option>';
+
+        if (!selectedPenyelenggara) {
+            alert("Pilih penyelenggara terlebih dahulu!");
+            this.value = ""; // Reset dropdown jika penyelenggara belum dipilih
+            return;
+        }
+
+        if (selectedPenyelenggara === 'mahasiswa' && selectedJenis === 'jurusan') {
+            labelDropdown.innerText = 'Pilih Jurusan';
+            jurusan.forEach(item => {
+                dropdownPilihan.innerHTML += `<option value="${item.id_jurusan}">${item.nama_jurusan}</option>`;
+            });
+            dropdownDinamis.style.display = 'block';
+        } else if (selectedPenyelenggara === 'mahasiswa' && selectedJenis === 'prodi') {
+            labelDropdown.innerText = 'Pilih Prodi';
+            prodi.forEach(item => {
+                dropdownPilihan.innerHTML += `<option value="${item.id_prodi}">${item.nama_prodi}</option>`;
+            });
+            dropdownDinamis.style.display = 'block';
+        } else if (selectedPenyelenggara === 'direktur' && selectedJenis === 'unit') {
+            labelDropdown.innerText = 'Pilih Unit';
+            unit.forEach(item => {
+                dropdownPilihan.innerHTML += `<option value="${item.id_unit}">${item.nama_unit}</option>`;
+            });
+            dropdownDinamis.style.display = 'block';
+        } else {
+            dropdownDinamis.style.display = 'none';
+        }
+    });
+});
+
+</script>
+
+<?= $this->endSection(); ?>
+// end
+
+
+
+
+
+public function tambah()
+    {
+        // Ambil data user dari session
+        $userId = session()->get('id_users');
+        $user = $this->userModel->find($userId);
+
+        // Ambil data untuk form (jurusan, prodi, unit)
+        $data = [
+            'title' => 'Halaman Tambah Data',
+            'user' => $user,
+            'jurusan' => $this->jurusanModel->findAll(),
+            'prodi' => $this->prodiModel->findAll(),
+            'unit' => $this->unitModel->findAll(),
+        ];
+
+        return view('pembuat/tambah', $data);
+    }
+
+
+    public function simpan()
+    {
+
+    $userId = session()->get('id_users'); // Ambil ID user dari session
+    $user = $this->userModel->find($userId); // Ambil data user dari tabel users
+
+        // Log aktivitas
+    $logModel = new LogAktivitasModel();
+    $session = session();
+    
+    $logModel->insert([
+        'id_users' => $session->get('id_users'),
+        'username' => $session->get('username'),
+        'role'     => $session->get('role'),
+        'aktivitas'=> 'Membuat kegiatan baru',
+    ]);
+
+
+        if (session()->get('role') !== 'Pembuat') {
+            return view('errors/403'); // Tampilkan halaman Unauthorized
+        }  
+              
+         $validation = \Config\Services::validation();
+
+    $tanggalMulai = $this->request->getPost('tanggal_mulai');
+    $existingKegiatan = $this->pembuatModel
+    ->where('tanggal_mulai', $tanggalMulai)
+    ->first();
+
+if ($existingKegiatan) {
+    $validation->setError('tanggal_mulai', 'Kegiatan pada tanggal ' . $tanggalMulai . ' sudah ada. Silakan pilih tanggal lain.');
+}
+
+if (!$validation->withRequest($this->request)->run()) {
+    return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+}
+
+    // Proses upload gambar
+    $poster = $this->request->getFile('poster');
+
+    if ($poster->isValid() && !$poster->hasMoved()) {
+        // Generate nama file unik
+        $newName = $poster->getRandomName();
+        $poster->move(ROOTPATH . 'public/assets/images', $newName);
+    } else {
+        return redirect()->back()->withInput()->with('error', 'Gagal mengunggah poster.');
+    }
+
+     // Proses upload video
+     $video = $this->request->getFile('video');
+     $videoName = null;
+     if ($video && $video->isValid() && !$video->hasMoved()) {
+         $videoName = $video->getRandomName();
+         $video->move(ROOTPATH . 'public/assets/videos', $videoName);
+     }
+
+     // Pastikan penyelenggara sesuai dengan jenis users
+    $penyelenggara = $this->request->getPost('penyelenggara');
+    if ($user['jenis_users'] === 'mahasiswa' && $penyelenggara !== 'mahasiswa') {
+        return redirect()->back()->with('error', 'Anda hanya dapat memilih penyelenggara sesuai dengan jenis users Anda.');
+    }
+
+    if ($user['jenis_users'] === 'karyawan' && $penyelenggara !== 'karyawan') {
+        return redirect()->back()->with('error', 'Anda hanya dapat memilih penyelenggara sesuai dengan jenis users Anda.');
+    }
+
+
+ 
+     // Simpan data ke database
+     $this->pembuatModel->save([
+         'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+         'poster' => $newName, // Nama file poster
+         'video' => $videoName,   // Nama file video (null jika tidak diupload)
+         'deskripsi' => $this->request->getPost('deskripsi'),
+         'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+         'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+         'lokasi' => $this->request->getPost('lokasi'),
+         'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+         'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+         'peserta' => $this->request->getPost('peserta'),
+         'nara_hubung' => $this->request->getPost('nara_hubung'),
+         'penyelenggara' => $this->request->getPost('penyelenggara'),
+         'id_users' => $userId,
+         'nama_pembuat' => $user['nama_lengkap'], // Nama lengkap pembuat
+         'jurusan' => $user['jenis_users'] === 'mahasiswa' ? $user['id_jurusan'] : null, // Jurusan (jika mahasiswa)
+         'prodi' => $user['jenis_users'] === 'mahasiswa' ? $user['id_prodi'] : null,     // Prodi (jika mahasiswa)
+         'unit' => $user['jenis_users'] === 'karyawan' ? $user['id_unit'] : null,        // Unit (jika karyawan)
+         'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan'),
+         'status' => 'Belum dimulai',
+         'disetujui' => 'pending',
+         'keterangan' => $this->request->getPost('keterangan')
+     ]);
+
+
+    return redirect()->to('/dashboard/pembuat/kegiatan')->with('success', 'Data berhasil ditambahkan.');
+    }
+
+
+
+
+
+    //data backup controller terbaru 
+    public function kegiatan()
+{
+    // Cek apakah user memiliki role 'Pembuat'
+    if (session()->get('role') !== 'Pembuat') {
+        return view('errors/403'); // Tampilkan halaman Unauthorized
+    }
+
+    $userId = session()->get('id_users'); // Ambil ID user dari session
+    $perPage = 5; // Jumlah data per halaman
+    $keyword = $this->request->getGet('keyword'); // Ambil input pencarian
+
+    // Ambil data kegiatan berdasarkan ID user yang login
+    if ($keyword) {
+        // Jika ada pencarian berdasarkan keyword
+        $kegiatan = $this->pembuatModel
+            ->where('id_users', $userId)
+            ->like('nama_kegiatan', $keyword)
+            ->paginate($perPage);
+    } else {
+        // Data normal tanpa pencarian
+        $kegiatan = $this->pembuatModel
+            ->where('id_users', $userId)
+            ->paginate($perPage);
+    }
+
+    // Ambil tanggal hari ini
+    $today = date('Y-m-d');
+
+    // Tentukan status kegiatan berdasarkan tanggal
+    foreach ($kegiatan as &$item) {
+        if ($item['disetujui'] === 'disetujui') {
+            if ($today < $item['tanggal_mulai']) {
+                $item['status'] = 'belum dimulai';
+            } elseif ($today >= $item['tanggal_mulai'] && $today <= $item['tanggal_selesai']) {
+                $item['status'] = 'sedang dilaksanakan';
+            } else {
+                $item['status'] = 'sudah selesai';
+            }
+        }
+    }
+
+    $data = [
+        'title' => 'Daftar Kegiatan Saya',
+        'kegiatan' => $kegiatan, // Data kegiatan yang dibuat oleh user login
+        'pager' => $this->pembuatModel->pager, // Objek pager untuk pagination
+        'keyword' => $keyword, // Simpan keyword untuk dioper ke view
+        'username' => session()->get('username') // Ambil username dari session
+    ];
+
+    return view('/pembuat/kegiatan', $data);
+}
+
+
+
+
+    public function tambah()
+    {
+        // Ambil data user dari session
+        $userId = session()->get('id_users');
+        $user = $this->userModel->find($userId);
+
+        // Ambil data untuk form (jurusan, prodi, unit)
+        $data = [
+            'title' => 'Halaman Tambah Data',
+            'user' => $user,
+            'jurusan' => $this->jurusanModel->findAll(),
+            'prodi' => $this->prodiModel->findAll(),
+            'unit' => $this->unitModel->findAll(),
+        ];
+
+        return view('pembuat/tambah', $data);
+    }
+
+
+    public function simpan()
+    {
+
+    $userId = session()->get('id_users'); // Ambil ID user dari session
+    $user = $this->userModel->find($userId); // Ambil data user dari tabel users
+
+        // Log aktivitas
+    $logModel = new LogAktivitasModel();
+    $session = session();
+    
+    $logModel->insert([
+        'id_users' => $session->get('id_users'),
+        'username' => $session->get('username'),
+        'role'     => $session->get('role'),
+        'aktivitas'=> 'Membuat kegiatan baru',
+    ]);
+
+
+        if (session()->get('role') !== 'Pembuat') {
+            return view('errors/403'); // Tampilkan halaman Unauthorized
+        }  
+              
+         $validation = \Config\Services::validation();
+
+    $validation->setRules([
+        'nama_kegiatan' => [
+            'rules' => 'required|min_length[3]',
+            'errors' => [
+                'required' => 'Nama kegiatan tidak boleh kosong.',
+                'min_length' => 'Nama kegiatan terlalu pendek, minimal 3 karakter.'
+            ]
+        ],
+        'poster' => [
+            'rules' => 'is_image[poster]|mime_in[poster,image/jpg,image/jpeg,image/png]',
+            'errors' => [
+                'is_image' => 'File yang diunggah bukan poster.',
+                'mime_in' => 'Hanya poster dengan format JPG, JPEG, atau PNG yang diperbolehkan.'
+            ]
+        ],
+        'video' => [
+    'rules' => 'uploaded[video]|mime_in[video,video/mp4,video/x-msvideo]|max_size[video,10240]',
+    'errors' => [
+        'uploaded' => 'File video harus diunggah.',
+        'mime_in' => 'Hanya video dengan format MP4 atau AVI yang diperbolehkan.',
+        'max_size' => 'Ukuran video tidak boleh lebih dari 10MB.'
+    ]
+],
+
+        'deskripsi' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Deskripsi kegiatan harus diisi.',
+                'min_length' => 'Deskripsi kegiatan terlalu pendek, minimal 10 karakter.'
+            ]
+        ],
+        'tanggal_mulai' => [
+            'rules' => 'required|valid_date',
+            'errors' => [
+                'required' => 'Tanggal mulai harus diisi.',
+                'valid_date' => 'Tanggal mulai tidak valid.'
+            ]
+        ],
+        'tanggal_selesai' => [
+            'rules' => 'required',
+            'errors' => [
+                'required' => 'Tanggal selesai kegiatan harus diisi.'
+            ]
+        ],
+        'lokasi' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Lokasi wajib diisi ya!',
+                'min_length' => 'Lokasi minimal harus 10 karakter.'
+            ]
+        ],
+        'jenis_kegiatan' => [
+            'rules' => 'required|in_list[Akademik, Non Akademik, Umum]',
+            'errors' => [
+                'required' => 'Jenis kegiatan wajib diisi!',
+                'in_list' => 'Jenis kegiatan harus berisi Akademik, Non Akademik, atau Umum.'
+            ]
+        ],
+        'penanggung_jawab' => [
+            'rules' => 'required|min_length[5]',
+            'errors' => [
+                'required' => 'Penanggung jawab wajib diisi!',
+                'min_length' => 'Penanggung jawab minimal harus 5 karakter.'
+            ]
+        ],
+        'peserta' => [
+            'rules' => 'required|in_list[mahasiswa, karyawan, umum, pejabat]',
+            'errors' => [
+                'required' => 'Peserta wajib diisi!',
+                'in_list' => 'Peserta harus berisi mahasiswa, karyawan, umum, atau pejabat.'
+            ]
+        ],
+        'nara_hubung' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Nara hubung wajib diisi!',
+                'min_length' => 'Nara hubung harus berisi minimal 10 karakter.'
+            ]
+        ],
+        'penyelenggara' => [
+            'rules' => 'required|in_list[Mahasiswa, Karyawan]',
+            'errors' => [
+                'required' => 'Penyelenggara wajib diisi!',
+                'in_list' => 'Penyelenggara harus berisi Mahasiswa, Karyawan.'
+            ]
+        ],
+        'waktu_kegiatan' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Waktu kegiatan wajib diisi!',
+                'min_length' => 'Waktu kegiatan harus berisi minimal 10 karakter.'
+            ]
+        ]
+    ]);
+    
+
+    $tanggalMulai = $this->request->getPost('tanggal_mulai');
+    $existingKegiatan = $this->pembuatModel
+    ->where('tanggal_mulai', $tanggalMulai)
+    ->first();
+
+if ($existingKegiatan) {
+    $validation->setError('tanggal_mulai', 'Kegiatan pada tanggal ' . $tanggalMulai . ' sudah ada. Silakan pilih tanggal lain.');
+}
+
+if (!$validation->withRequest($this->request)->run()) {
+    return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+}
+
+    // Proses upload gambar
+    $poster = $this->request->getFile('poster');
+
+    if ($poster->isValid() && !$poster->hasMoved()) {
+        // Generate nama file unik
+        $newName = $poster->getRandomName();
+        $poster->move(ROOTPATH . 'public/assets/images', $newName);
+    } else {
+        return redirect()->back()->withInput()->with('error', 'Gagal mengunggah poster.');
+    }
+
+     // Proses upload video
+     $video = $this->request->getFile('video');
+     $videoName = null;
+     if ($video && $video->isValid() && !$video->hasMoved()) {
+         $videoName = $video->getRandomName();
+         $video->move(ROOTPATH . 'public/assets/videos', $videoName);
+     }
+
+     // Pastikan penyelenggara sesuai dengan jenis users
+    $penyelenggara = $this->request->getPost('penyelenggara');
+    if ($user['jenis_users'] === 'mahasiswa' && $penyelenggara !== 'mahasiswa') {
+        return redirect()->back()->with('error', 'Anda hanya dapat memilih penyelenggara sesuai dengan jenis users Anda.');
+    }
+
+    if ($user['jenis_users'] === 'karyawan' && $penyelenggara !== 'karyawan') {
+        return redirect()->back()->with('error', 'Anda hanya dapat memilih penyelenggara sesuai dengan jenis users Anda.');
+    }
+
+
+ 
+     // Simpan data ke database
+     $this->pembuatModel->save([
+         'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+         'poster' => $newName, // Nama file poster
+         'video' => $videoName,   // Nama file video (null jika tidak diupload)
+         'deskripsi' => $this->request->getPost('deskripsi'),
+         'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+         'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+         'lokasi' => $this->request->getPost('lokasi'),
+         'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+         'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+         'peserta' => $this->request->getPost('peserta'),
+         'nara_hubung' => $this->request->getPost('nara_hubung'),
+         'penyelenggara' => $this->request->getPost('penyelenggara'),
+         'id_users' => $userId,
+         'nama_pembuat' => $user['nama_lengkap'], // Nama lengkap pembuat
+         'jurusan' => $user['jenis_users'] === 'mahasiswa' ? $user['id_jurusan'] : null, // Jurusan (jika mahasiswa)
+         'prodi' => $user['jenis_users'] === 'mahasiswa' ? $user['id_prodi'] : null,     // Prodi (jika mahasiswa)
+         'unit' => $user['jenis_users'] === 'karyawan' ? $user['id_unit'] : null,        // Unit (jika karyawan)
+         'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan'),
+         'status' => 'Belum dimulai',
+         'disetujui' => 'pending',
+         'keterangan' => $this->request->getPost('keterangan')
+     ]);
+
+
+    return redirect()->to('/dashboard/pembuat/kegiatan')->with('success', 'Data berhasil ditambahkan.');
+    }
+
+    //end
+
+
+
+
+
+
+
+    //DATA BACKUP TERBARU TANGGAL 12-01-2025
+
+    PembuatController Fungsi Tambah & Simpan
+
+     public function tambah()
+    {
+        // Ambil data user dari session
+        $userId = session()->get('id_users');
+        $user = $this->userModel->find($userId);
+        
+
+        // Ambil data untuk form (jurusan, prodi, unit)
+        $data = [
+            'title' => 'Halaman Tambah Data',
+            'user' => $user,
+            'jurusan' => $this->jurusanModel->findAll(),
+            'prodi' => $this->prodiModel->findAll(),
+            'unit' => $this->unitModel->findAll(),
+        ];
+
+        return view('pembuat/tambah', $data);
+    }
+
+
+    public function simpan()
+    {
+
+    $userId = session()->get('id_users'); // Ambil ID user dari session
+    $user = $this->userModel->find($userId); // Ambil data user dari tabel users
+
+        // Log aktivitas
+    $logModel = new LogAktivitasModel();
+    $session = session();
+    
+    $logModel->insert([
+        'id_users' => $session->get('id_users'),
+        'username' => $session->get('username'),
+        'role'     => $session->get('role'),
+        'aktivitas'=> 'Membuat kegiatan baru',
+    ]);
+
+
+        if (session()->get('role') !== 'Pembuat') {
+            return view('errors/403'); // Tampilkan halaman Unauthorized
+        }  
+              
+         $validation = \Config\Services::validation();
+
+    $validation->setRules([
+        'nama_kegiatan' => [
+            'rules' => 'required|min_length[3]',
+            'errors' => [
+                'required' => 'Nama kegiatan tidak boleh kosong.',
+                'min_length' => 'Nama kegiatan terlalu pendek, minimal 3 karakter.'
+            ]
+        ],
+        'poster' => [
+            'rules' => 'is_image[poster]|mime_in[poster,image/jpg,image/jpeg,image/png]',
+            'errors' => [
+                'is_image' => 'File yang diunggah bukan poster.',
+                'mime_in' => 'Hanya poster dengan format JPG, JPEG, atau PNG yang diperbolehkan.'
+            ]
+        ],
+        'video' => [
+    'rules' => 'uploaded[video]|mime_in[video,video/mp4,video/x-msvideo]|max_size[video,10240]',
+    'errors' => [
+        'uploaded' => 'File video harus diunggah.',
+        'mime_in' => 'Hanya video dengan format MP4 atau AVI yang diperbolehkan.',
+        'max_size' => 'Ukuran video tidak boleh lebih dari 10MB.'
+    ]
+],
+
+        'deskripsi' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Deskripsi kegiatan harus diisi.',
+                'min_length' => 'Deskripsi kegiatan terlalu pendek, minimal 10 karakter.'
+            ]
+        ],
+        'tanggal_mulai' => [
+            'rules' => 'required|valid_date',
+            'errors' => [
+                'required' => 'Tanggal mulai harus diisi.',
+                'valid_date' => 'Tanggal mulai tidak valid.'
+            ]
+        ],
+        'tanggal_selesai' => [
+            'rules' => 'required',
+            'errors' => [
+                'required' => 'Tanggal selesai kegiatan harus diisi.'
+            ]
+        ],
+        'lokasi' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Lokasi wajib diisi ya!',
+                'min_length' => 'Lokasi minimal harus 10 karakter.'
+            ]
+        ],
+        'jenis_kegiatan' => [
+            'rules' => 'required|in_list[Akademik, Non Akademik, Umum]',
+            'errors' => [
+                'required' => 'Jenis kegiatan wajib diisi!',
+                'in_list' => 'Jenis kegiatan harus berisi Akademik, Non Akademik, atau Umum.'
+            ]
+        ],
+        'penanggung_jawab' => [
+            'rules' => 'required|min_length[5]',
+            'errors' => [
+                'required' => 'Penanggung jawab wajib diisi!',
+                'min_length' => 'Penanggung jawab minimal harus 5 karakter.'
+            ]
+        ],
+        'peserta' => [
+            'rules' => 'required|in_list[mahasiswa, karyawan, umum, pejabat]',
+            'errors' => [
+                'required' => 'Peserta wajib diisi!',
+                'in_list' => 'Peserta harus berisi mahasiswa, karyawan, umum, atau pejabat.'
+            ]
+        ],
+        'nara_hubung' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Nara hubung wajib diisi!',
+                'min_length' => 'Nara hubung harus berisi minimal 10 karakter.'
+            ]
+        ],
+        'penyelenggara' => [
+            'rules' => 'required|in_list[Mahasiswa, Karyawan]',
+            'errors' => [
+                'required' => 'Penyelenggara wajib diisi!',
+                'in_list' => 'Penyelenggara harus berisi Mahasiswa, Karyawan.'
+            ]
+        ],
+        'waktu_kegiatan' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Waktu kegiatan wajib diisi!',
+                'min_length' => 'Waktu kegiatan harus berisi minimal 10 karakter.'
+            ]
+        ]
+    ]);
+    
+
+    $tanggalMulai = $this->request->getPost('tanggal_mulai');
+    $existingKegiatan = $this->pembuatModel
+    ->where('tanggal_mulai', $tanggalMulai)
+    ->first();
+
+if ($existingKegiatan) {
+    $validation->setError('tanggal_mulai', 'Kegiatan pada tanggal ' . $tanggalMulai . ' sudah ada. Silakan pilih tanggal lain.');
+}
+
+if (!$validation->withRequest($this->request)->run()) {
+    return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+}
+
+    // Proses upload gambar
+    $poster = $this->request->getFile('poster');
+
+    if ($poster->isValid() && !$poster->hasMoved()) {
+        // Generate nama file unik
+        $newName = $poster->getRandomName();
+        $poster->move(ROOTPATH . 'public/assets/images', $newName);
+    } else {
+        return redirect()->back()->withInput()->with('error', 'Gagal mengunggah poster.');
+    }
+
+     // Proses upload video
+     $video = $this->request->getFile('video');
+     $videoName = null;
+     if ($video && $video->isValid() && !$video->hasMoved()) {
+         $videoName = $video->getRandomName();
+         $video->move(ROOTPATH . 'public/assets/videos', $videoName);
+     }
+
+     // Pastikan penyelenggara sesuai dengan jenis users
+    $penyelenggara = $this->request->getPost('penyelenggara');
+    if ($user['jenis_users'] === 'mahasiswa' && $penyelenggara !== 'mahasiswa') {
+        return redirect()->back()->with('error', 'Anda hanya dapat memilih penyelenggara sesuai dengan jenis users Anda.');
+    }
+
+    if ($user['jenis_users'] === 'karyawan' && $penyelenggara !== 'karyawan') {
+        return redirect()->back()->with('error', 'Anda hanya dapat memilih penyelenggara sesuai dengan jenis users Anda.');
+    }
+
+
+ 
+     // Simpan data ke database
+     $this->pembuatModel->save([
+         'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+         'poster' => $newName, // Nama file poster
+         'video' => $videoName,   // Nama file video (null jika tidak diupload)
+         'deskripsi' => $this->request->getPost('deskripsi'),
+         'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+         'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+         'lokasi' => $this->request->getPost('lokasi'),
+         'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+         'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+         'peserta' => $this->request->getPost('peserta'),
+         'nara_hubung' => $this->request->getPost('nara_hubung'),
+         'penyelenggara' => $this->request->getPost('penyelenggara'),
+         'id_users' => $userId,
+         'nama_pembuat' => $user['nama_lengkap'], // Nama lengkap pembuat
+         'jurusan' => $user['jenis_users'] === 'mahasiswa' ? $user['id_jurusan'] : null, // Jurusan (jika mahasiswa)
+         'prodi' => $user['jenis_users'] === 'mahasiswa' ? $user['id_prodi'] : null,     // Prodi (jika mahasiswa)
+         'unit' => $user['jenis_users'] === 'karyawan' ? $user['id_unit'] : null,        // Unit (jika karyawan)
+         'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan'),
+         'status' => 'Belum dimulai',
+         'disetujui' => 'pending',
+         'keterangan' => $this->request->getPost('keterangan')
+     ]);
+
+
+    return redirect()->to('/dashboard/pembuat/kegiatan')->with('success', 'Data berhasil ditambahkan.');
+    }
+
+    public function edit($id)
+    {
+
+        if (session()->get('role') !== 'Pembuat') {
+            return view('errors/403'); // Tampilkan halaman Unauthorized
+        }
+
+         $data = [
+            'title' => 'Halaman Kegiatan',
+            'kegiatan' => $this->pembuatModel->find($id),
+            'jurusan' => $this->jurusanModel->findAll(),
+            'prodi' => $this->prodiModel->findAll(),
+            'unit' => $this->unitModel->findAll(),
+        ];
+
+        return view('/pembuat/edit', $data);
+    }
+
+    public function update($id)
+    {
+
+        if (session()->get('role') !== 'Pembuat') {
+            return view('errors/403'); // Tampilkan halaman Unauthorized
+        }
+
+        $validation = \Config\Services::validation();
+
+        // Menambahkan aturan validasi
+        $validation->setRules([
+        'nama_kegiatan' => [
+            'rules' => 'required|min_length[3]',
+            'errors' => [
+                'required' => 'Nama kegiatan tidak boleh kosong.',
+                'min_length' => 'Nama kegiatan terlalu pendek, minimal 3 karakter.'
+            ]
+        ],
+        'poster' => [
+            'rules' => 'is_image[poster]|mime_in[poster,image/jpg,image/jpeg,image/png]',
+            'errors' => [
+                'is_image' => 'File yang diunggah bukan poster.',
+                'mime_in' => 'Hanya poster dengan format JPG, JPEG, atau PNG yang diperbolehkan.'
+            ]
+        ],
+        'video' => [
+    'rules' => 'mime_in[video,video/mp4,video/x-msvideo]|max_size[video,10240]',
+    'errors' => [
+        'mime_in' => 'Hanya video dengan format MP4 atau AVI yang diperbolehkan.',
+        'max_size' => 'Ukuran video tidak boleh lebih dari 10MB.'
+    ]
+],
+
+        'deskripsi' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Deskripsi kegiatan harus diisi.',
+                'min_length' => 'Deskripsi kegiatan terlalu pendek, minimal 10 karakter.'
+            ]
+        ],
+        'tanggal_mulai' => [
+            'rules' => 'required|valid_date',
+            'errors' => [
+                'required' => 'Tanggal mulai harus diisi.',
+                'valid_date' => 'Tanggal mulai tidak valid.'
+            ]
+        ],
+        'tanggal_selesai' => [
+            'rules' => 'required',
+            'errors' => [
+                'required' => 'Tanggal selesai kegiatan harus diisi.'
+            ]
+        ],
+        'lokasi' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Lokasi wajib diisi ya!',
+                'min_length' => 'Lokasi minimal harus 10 karakter.'
+            ]
+        ],
+        'jenis_kegiatan' => [
+            'rules' => 'required|in_list[Akademik, Non Akademik, Umum]',
+            'errors' => [
+                'required' => 'Jenis kegiatan wajib diisi!',
+                'in_list' => 'Jenis kegiatan harus berisi Akademik, Non Akademik, atau Umum.'
+            ]
+        ],
+        'penanggung_jawab' => [
+            'rules' => 'required|min_length[5]',
+            'errors' => [
+                'required' => 'Penanggung jawab wajib diisi!',
+                'min_length' => 'Penanggung jawab minimal harus 5 karakter.'
+            ]
+        ],
+        'peserta' => [
+            'rules' => 'required|in_list[mahasiswa, karyawan, umum, pejabat]',
+            'errors' => [
+                'required' => 'Peserta wajib diisi!',
+                'in_list' => 'Peserta harus berisi mahasiswa, karyawan, umum, atau pejabat.'
+            ]
+        ],
+        'nara_hubung' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Nara hubung wajib diisi!',
+                'min_length' => 'Nara hubung harus berisi minimal 10 karakter.'
+            ]
+        ],
+        'penyelenggara' => [
+            'rules' => 'required|in_list[mahasiswa, umum, direktur]',
+            'errors' => [
+                'required' => 'Penyelenggara wajib diisi!',
+                'in_list' => 'Penyelenggara harus berisi mahasiswa, umum, atau direktur.'
+            ]
+        ],
+        'jenis_penyelenggara' => [
+            'rules' => 'required|in_list[jurusan, prodi, unit]',
+            'errors' => [
+                'required' => 'Jenis penyelenggara wajib diisi!',
+                'in_list' => 'Jenis penyelenggara harus berisi jurusan, prodi, atau unit.'
+            ]
+        ],
+       'detail_penyelenggara' => [
+        'rules' => 'required',
+        'errors' => [
+            'required' => 'Detail penyelenggara wajib diisi!',
+        ]
+    ],
+        'waktu_kegiatan' => [
+            'rules' => 'required|min_length[10]',
+            'errors' => [
+                'required' => 'Waktu kegiatan wajib diisi!',
+                'min_length' => 'Waktu kegiatan harus berisi minimal 10 karakter.'
+            ]
+        ]
+    ]);
+
+        // Validasi
+       // Validasi input
+    if (!$validation->withRequest($this->request)->run()) {
+        return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+    }
+
+    // Proses upload gambar (opsional)
+    $poster = $this->request->getFile('poster');
+    $newName = $this->pembuatModel->find($id)['poster']; // Nama poster default
+    if ($poster && $poster->isValid() && !$poster->hasMoved()) {
+        $newName = $poster->getRandomName();
+        $poster->move(ROOTPATH . 'public/assets/images', $newName);
+    }
+
+    // Proses upload video (opsional)
+    $video = $this->request->getFile('video');
+    $videoName = $this->pembuatModel->find($id)['video']; // Nama video default
+    if ($video && $video->isValid() && !$video->hasMoved()) {
+        $videoName = $video->getRandomName();
+        $video->move(ROOTPATH . 'public/assets/videos', $videoName);
+    }
+
+    // Update data kegiatan
+    $pembuatModel = new pembuatModel();
+    $data = [
+        'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+        'poster' => $newName,
+        'video' => $videoName,
+        'deskripsi' => $this->request->getPost('deskripsi'),
+        'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+        'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+        'lokasi' => $this->request->getPost('lokasi'),
+        'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+        'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+        'peserta' => $this->request->getPost('peserta'),
+        'nara_hubung' => $this->request->getPost('nara_hubung'),
+        'penyelenggara' => $this->request->getPost('penyelenggara'),
+        'jenis_penyelenggara' => $this->request->getPost('jenis_penyelenggara'),
+        'detail_penyelenggara' => $this->request->getPost('detail_penyelenggara'),
+        'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan'),
+        'status' => 'Belum diketahui',
+        'disetujui' => 'pending',
+        'keterangan' => $this->request->getPost('keterangan') 
+    ];
+
+    $pembuatModel->update($id, $data);
+    return redirect()->to('/pembuat/kegiatan')->with('success', 'Data kegiatan berhasil diperbarui!');
+}
+
+
+
+2. File Form Tambah Data Kegiatan Untuk Pembuat
+
+<?= $this->extend('template/templatePembuat'); ?>
+
+<?= $this->section('content'); ?>
+<div class="container-fluid mt-5">
+    <div class="content">
+        <h1 class="h3 mb-4 font-weight-bold text-gray-800">Tambah Kegiatan</h1>
+
+        <!-- Menampilkan error jika ada -->
+        <?php if (session()->getFlashdata('errors')): ?>
+            <div class="alert alert-danger">
+                <ul>
+                    <?php foreach (session()->getFlashdata('errors') as $error): ?>
+                        <li><?= esc($error); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <!-- Form untuk menambah kegiatan -->
+        <form action="/dashboard/pembuat/simpan" method="POST" enctype="multipart/form-data">
+            <?= csrf_field(); ?>
+            <div class="row bg-white shadow-sm p-4 rounded">
+                <!-- Kolom Kiri -->
+                <div class="col-md-6">
+                    <!-- Nama Kegiatan -->
+                    <div class="mb-3">
+                        <label for="nama_kegiatan" class="form-label">Nama Kegiatan</label>
+                        <input type="text" class="form-control" id="nama_kegiatan" name="nama_kegiatan" value="<?= old('nama_kegiatan'); ?>" placeholder="Masukkan Nama Kegiatan">
+                    </div>
+
+                    <!-- Deskripsi Kegiatan -->
+                    <div class="mb-3">
+                        <label for="deskripsi" class="form-label">Deskripsi Kegiatan</label>
+                        <textarea class="form-control costum-area" id="deskripsi" name="deskripsi" rows="3" placeholder="Masukkan Deskripsi Kegiatan"><?= old('deskripsi'); ?></textarea>
+                    </div>
+
+                    <!-- Tanggal Mulai -->
+                    <div class="mb-3">
+                        <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                        <input type="date" class="form-control" id="tanggal_mulai" name="tanggal_mulai" value="<?= old('tanggal_mulai'); ?>">
+                    </div>
+
+                    <!-- Tanggal Selesai -->
+                    <div class="mb-3">
+                        <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                        <input type="date" class="form-control" id="tanggal_selesai" name="tanggal_selesai" value="<?= old('tanggal_selesai'); ?>">
+                    </div>
+
+                    <!-- Lokasi -->
+                    <div class="mb-3">
+                        <label for="lokasi" class="form-label">Lokasi</label>
+                        <input type="text" class="form-control" id="lokasi" name="lokasi" value="<?= old('lokasi'); ?>" placeholder="Masukkan Lokasi">
+                    </div>
+
+                    <!-- Poster -->
+                    <div class="mb-3">
+                        <label for="poster" class="form-label">Unggah Poster</label>
+                        <input type="file" class="form-control" id="poster" name="poster" accept="image/*">
+                    </div>
+
+                    <!-- Video -->
+                    <div class="mb-3">
+                        <label for="video" class="form-label">Unggah Video</label>
+                        <input type="file" class="form-control" id="video" name="video" accept="video/*">
+                    </div>
+                </div>
+
+                <!-- Kolom Kanan -->
+                <div class="col-md-6">
+                    <!-- Waktu Kegiatan -->
+                    <div class="mb-3">
+                        <label for="waktu_kegiatan" class="form-label">Waktu Kegiatan</label>
+                        <input type="text" class="form-control" id="waktu_kegiatan" name="waktu_kegiatan" value="<?= old('waktu_kegiatan'); ?>" placeholder="Waktu mulai - selesai kegiatan">
+                    </div>
+
+                    <!-- Nara Hubung -->
+                    <div class="mb-3">
+                        <label for="nara_hubung" class="form-label">Nara Hubung</label>
+                        <input type="text" class="form-control" id="nara_hubung" name="nara_hubung" value="<?= old('nara_hubung'); ?>" placeholder="Masukkan Nara Hubung">
+                    </div>
+
+                    <!-- Penanggung Jawab -->
+                    <div class="mb-3">
+                        <label for="penanggung_jawab" class="form-label">Penanggung Jawab</label>
+                        <input type="text" class="form-control" id="penanggung_jawab" name="penanggung_jawab" value="<?= old('penanggung_jawab'); ?>" placeholder="Masukkan Penanggung Jawab">
+                    </div>
+
+                    <!-- Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="penyelenggara" class="form-label">Penyelenggara</label>
+                        <select class="form-control" id="penyelenggara" name="penyelenggara" onchange="handlePenyelenggaraChange()">
+                            <option value="">-- Pilih Penyelenggara --</option>
+                            <option value="Mahasiswa" <?= old('penyelenggara') === 'Mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="Karyawan" <?= old('penyelenggara') === 'Karyawan' ? 'selected' : ''; ?>>Karyawan</option>
+                        </select>
+                    </div>
+
+                    <!-- Dynamic Fields -->
+                    <div id="dynamic-fields"></div>
+                </div>
+            </div>
+
+            <!-- Button Submit -->
+            <div class="text-end mt-3">
+                <button type="submit" class="btn btn-primary">Simpan</button>
+                <a href="/dashboard/pembuat/kegiatan" class="btn btn-secondary">Kembali</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .costum-area {
+        width: 100%;
+        resize: none;
+    }
+</style>
+
+<script>
+function handlePenyelenggaraChange() {
+    const penyelenggara = document.getElementById('penyelenggara').value;
+    const dynamicFields = document.getElementById('dynamic-fields');
+    dynamicFields.innerHTML = '';
+
+    if (penyelenggara === 'Mahasiswa') {
+        dynamicFields.innerHTML = `
+            <div class="mb-3">
+                <label for="nama_lengkap" class="form-label">Nama Lengkap</label>
+                <input type="text" class="form-control" id="nama_lengkap" name="nama_lengkap" value="<?= $user['nama_lengkap'] ?>" readonly>
+            </div>
+            <div class="mb-3">
+                <label for="id_jurusan" class="form-label">Jurusan</label>
+                <input type="text" class="form-control" id="id_jurusan" name="id_jurusan" value="<?= $user['id_jurusan'] ?>" readonly>
+            </div>
+            <div class="mb-3">
+                <label for="id_prodi" class="form-label">Prodi</label>
+                <input type="text" class="form-control" id="id_prodi" name="id_prodi" value="<?= $user['id_prodi'] ?>" readonly>
+            </div>
+        `;
+    } else if (penyelenggara === 'Karyawan') {
+        dynamicFields.innerHTML = `
+            <div class="mb-3">
+                <label for="nama_lengkap" class="form-label">Nama Lengkap</label>
+                <input type="text" class="form-control" id="nama_lengkap" name="nama_lengkap" value="<?= $user['nama_lengkap'] ?>" readonly>
+            </div>
+            <div class="mb-3">
+                <label for="id_unit" class="form-label">Unit</label>
+                <input type="text" class="form-control" id="id_unit" name="id_unit" value="<?= $user['id_unit'] ?>" readonly>
+            </div>
+        `;
+    }
+}
+</script>
+
+<?= $this->endSection(); ?>
+
+//END BACKUP
+
+
+
+
+
+ <!-- Penyelenggara -->
+        <div class="tab-pane fade" id="penyelenggara" role="tabpanel" aria-labelledby="penyelenggara-tab">
+            <form onsubmit="fetchData('penyelenggara'); return false;">
+                <label for="penyelenggaraType">Penyelenggara:</label>
+                <select id="penyelenggaraType" class="form-select mb-3" onchange="updatePenyelenggaraOptions()">
+                    <option value="">-- Pilih Penyelenggara --</option>
+                    <option value="mahasiswa">Mahasiswa</option>
+                    <option value="karyawan">Karyawan</option>
+                </select>
+
+                <!-- Dropdown Dinamis -->
+                <div id="dynamicOptions" class="mb-3"></div>
+
+                <label for="tahunPenyelenggara">Tahun:</label>
+                <select id="tahunPenyelenggara" class="form-select mb-3">
+                    <?php for ($i = 2020; $i <= date('Y'); $i++): ?>
+                        <option value="<?= $i ?>"><?= $i ?></option>
+                    <?php endfor; ?>
+                </select>
+                <button type="submit" class="btn btn-primary">Tampilkan</button>
+            </form>
+            <div class="bx">
+                <canvas id="penyelenggaraChart"></canvas>
+            </div>
+        </div>
+
+
+        function updatePenyelenggaraOptions() {
+    const penyelenggaraType = document.getElementById('penyelenggaraType').value;
+    const dynamicOptions = document.getElementById('dynamicOptions');
+    dynamicOptions.innerHTML = '';
+
+    if (penyelenggaraType === 'mahasiswa') {
+        dynamicOptions.innerHTML = `
+            <label for="kategoriMahasiswa">Kategori:</label>
+            <select id="kategoriMahasiswa" class="form-select mb-3" onchange="updateMahasiswaOptions()">
+                <option value="">-- Pilih --</option>
+                <option value="jurusan">Jurusan</option>
+                <option value="prodi">Prodi</option>
+                <option value="showAllMahasiswa">Show All Mahasiswa</option>
+            </select>
+            <div id="mahasiswaOptions" class="mb-3"></div>
+        `;
+    } else if (penyelenggaraType === 'karyawan') {
+        dynamicOptions.innerHTML = `
+            <label for="unit">Unit:</label>
+            <select id="unit" class="form-select mb-3">
+                <option value="">-- Pilih Unit --</option>
+                <?php foreach ($units as $unit): ?>
+                    <option value="<?= $unit['id_unit'] ?>"><?= $unit['nama_unit'] ?></option>
+                <?php endforeach; ?>
+                <option value="showAllUnit">Show All Unit</option>
+            </select>
+        `;
+    }
+}
+
+function updateMahasiswaOptions() {
+    const kategoriMahasiswa = document.getElementById('kategoriMahasiswa').value;
+    const mahasiswaOptions = document.getElementById('mahasiswaOptions');
+    mahasiswaOptions.innerHTML = '';
+
+    if (kategoriMahasiswa === 'jurusan') {
+        mahasiswaOptions.innerHTML = `
+            <label for="jurusan">Jurusan:</label>
+            <select id="jurusan" class="form-select mb-3">
+                <option value="">-- Pilih Jurusan --</option>
+                <?php foreach ($jurusans as $jurusan): ?>
+                    <option value="<?= $jurusan['id_jurusan'] ?>"><?= $jurusan['nama_jurusan'] ?></option>
+                <?php endforeach; ?>
+                <option value="showAllJurusan">Show All Jurusan</option>
+            </select>
+        `;
+    } else if (kategoriMahasiswa === 'prodi') {
+        mahasiswaOptions.innerHTML = `
+            <label for="prodi">Prodi:</label>
+            <select id="prodi" class="form-select mb-3">
+                <option value="">-- Pilih Prodi --</option>
+                <?php foreach ($prodis as $prodi): ?>
+                    <option value="<?= $prodi['id_prodi'] ?>"><?= $prodi['nama_prodi'] ?></option>
+                <?php endforeach; ?>
+                <option value="showAllProdi">Show All Prodi</option>
+            </select>
+        `;
+    }
+}
+
+
+
+
+///backup data grafik penyelenggara
+function updatePenyelenggaraOptions() {
+        const penyelenggaraType = document.getElementById('penyelenggaraType').value;
+        const dynamicOptions = document.getElementById('dynamicOptions');
+        dynamicOptions.innerHTML = '';
+
+        if (penyelenggaraType === 'mahasiswa') {
+            dynamicOptions.innerHTML = ` 
+                <label for="kategoriMahasiswa">Kategori:</label>
+                <select id="kategoriMahasiswa" class="form-select mb-3" onchange="updateMahasiswaOptions()">
+                    <option value="">-- Pilih --</option>
+                    <option value="jurusan">Jurusan</option>
+                    <option value="prodi">Prodi</option>
+                    <option value="showAllMahasiswa">Show All Mahasiswa</option>
+                </select>
+                <div id="mahasiswaOptions" class="mb-3"></div>
+            `;
+        } else if (penyelenggaraType === 'karyawan') {
+            dynamicOptions.innerHTML = ` 
+                <label for="unit">Unit:</label>
+                <select id="unit" class="form-select mb-3">
+                    <option value="">-- Pilih Unit --</option>
+                    <?php foreach ($units as $unit): ?>
+                        <option value="<?= $unit['id_unit'] ?>"><?= $unit['nama_unit'] ?></option>
+                    <?php endforeach; ?>
+                    <option value="showAllUnit">Show All Unit</option>
+                </select>
+            `;
+        }
+    }
+
+    function updateMahasiswaOptions() {
+        const kategoriMahasiswa = document.getElementById('kategoriMahasiswa').value;
+        const mahasiswaOptions = document.getElementById('mahasiswaOptions');
+        mahasiswaOptions.innerHTML = '';
+
+        if (kategoriMahasiswa === 'jurusan') {
+            mahasiswaOptions.innerHTML = `
+                <label for="jurusan">Jurusan:</label>
+                <select id="jurusan" class="form-select mb-3">
+                    <option value="">-- Pilih Jurusan --</option>
+                    <?php foreach ($jurusans as $jurusan): ?>
+                        <option value="<?= $jurusan['id_jurusan'] ?>"><?= $jurusan['nama_jurusan'] ?></option>
+                    <?php endforeach; ?>
+                    <option value="showAllJurusan">Show All Jurusan</option>
+                </select>
+            `;
+        } else if (kategoriMahasiswa === 'prodi') {
+            mahasiswaOptions.innerHTML = `
+                <label for="prodi">Prodi:</label>
+                <select id="prodi" class="form-select mb-3">
+                    <option value="">-- Pilih Prodi --</option>
+                    <?php foreach ($prodis as $prodi): ?>
+                        <option value="<?= $prodi['id_prodi'] ?>"><?= $prodi['nama_prodi'] ?></option>
+                    <?php endforeach; ?>
+                    <option value="showAllProdi">Show All Prodi</option>
+                </select>
+            `;
+        }
+    }
+
+
+
+
+
+
+
+
+    //Kode PP dan Username Di Template atas sebelah Kanan
+    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <!-- Menampilkan Nama Lengkap -->
+                            <span class="mr-3 text-gray-600">
+                                <?= $user['username'] ?>
+                            </span>
+                            <div class="dropdown-divider mx-2" style="height: 20px; border-left: 1px solid #ddd;"></div>
+                            <img src="<?= base_url($user['profile_pic']) ?>" alt="Profile Picture" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
+                            </a>

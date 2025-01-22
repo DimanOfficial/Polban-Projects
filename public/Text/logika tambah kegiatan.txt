@@ -1,0 +1,71 @@
+jadi saya mempunyai tabel users seperti ini : 
+
+id_users PRIMARY KEY
+username
+nama_lengkap
+email
+nip
+nim
+jenis_users Enum( mahasiswa, karyawan)
+id_jurusan FOREIGN KEY
+id_prodi FOREIGN KEY
+id_unit FOREIGN KEY
+role Enum(Admin, Pejabat, Pembuat) default Pembuat
+password
+
+
+nah terus saya juga punya tabel kegiatan seperti ini : 
+
+id_kegiatan
+nama_kegiatan
+deskripsi
+tanggal_mulai
+tanggal_selesai
+Penyelenggara Enum( mahasiswa, karyawan)
+id_users untuk menyimpan data id_users
+nama_lengkap (kolom untuk menyimpan dropdown dinamis yang muncul berdasarkan jenis_users "Mahasiswa atau Karyawan") 
+id_jurusan (kolom untuk menyimpan data dropdown dinamis yang muncul berdasarkan jenis_users "Mahasiswa")
+id_prodi (kolom untuk menyimpan data dropdown dinamis yang muncul berdasarkan jenis_users "Mahasiswa")
+id_unit (kolom untuk menyimpan data dropdown dinamis yang muncul berdasarkan jenis_users "Karyawan")
+
+
+itulah isi dari kedua tabel tersebut. Nah yang ingin saya minta bantuan ke kamu itu gini saya akan ceritakan ya alur dan logika nya.
+
+
+pertama-tama users mulai dengan melakukan sebuah register terlebih dahulu dengan mengisi beberapa inputan tapi disini form "register" saya menggunakan metode logika dinamis. Jadi nanti register itu akan menghasilkan 2 akun yaitu akun mahasiswa dan akun karyawan. 
+
+akun mahasiswa berdasarkan jenis_users nya "Mahasiswa" itu akan menyimpan : 
+nim
+username
+nama_lengkap
+email
+password
+jurusan
+prodi
+
+
+untuk akun karyawan berdasarkan jenis_users "Karyawan" akan menyimpan : 
+username
+nik
+nama_lengkap
+password
+email
+unit
+
+
+jadi kenapa saya menyimpan id_jurusan/unit/prodi itu karena agar menyimpan data di tabel user yang bertujuan untuk mengetahui user itu dari mana, misal mahasiswa itu dari jurusan mana terus prodi mana begitu juga untuk karyawan dari unit mana. Okeh setelah melakukan register users langsung diarahkan ke login dan masuk ke dashboard Pembuat karena secara default nya itu pembuat. Nah di dashboard pembuat itu si pembuat hanya bisa membuat kegiatan. jadi disini si pembuat akan membuat sebuah kegiatan kan. nah pastinya dia akan mengisi beberapa form input data kegiatan dan untuk tampilan form input tambah data kegiatannya kamu bisa lihat pada gambar di atas. Nah disini nih seperti yang kamu liat di tabel kegiatan ada kolom penyelenggara yang dimana disana ada 2 pilihan yaitu "Mahasiswa" dan "Karyawan", nah saya ingin agar kolom penyelenggara itu seperti ini logika nya : 
+
+
+PERHATIAN INI KHUSUS UNTUK ROLE PEMBUAT!
+
+1. Jika yang login itu jenis users nya "Mahasiswa" saya ingin agar ketika ingin tambah data baru pada saat mengisi kolom penyelenggara dengan pilihan mahasiwa itu dibawahnya akan otomatis muncul sebuah 3 input yang gak bisa di otak atik. 3 inputan tadi yaitu Nama_lengkap, jurusan dan prodi yang dimana ketiga inputan ini diambil dari data users miliknya yang tadi register. Nah kalau misalnya si pembuat ini milih penyelenggara dengan "karyawan" tidak akan muncul apa apa melainkan muncul sebuah pesan kalo harus memilih sesuai dengan jenis users anda. 
+
+2. Jika yang login itu jenis users nya "Karyawan" saya ingin agar ketika ingin tambah data baru pada saat mengisi kolom penyelenggara dengan pilihan karyawan itu dibawahnya akan otomatis muncul sebuah 2 input yang gak bisa di otak atik. 2 inputan tadi yaitu Nama_lengkap dan unit yang dimana kedua inputan ini diambil dari data users miliknya yang tadi register. Nah kalau misalnya si pembuat ini milih penyelenggara dengan "mahasiswa" tidak akan muncul apa apa melainkan muncul sebuah pesan kalo harus memilih sesuai dengan jenis users anda. 
+
+Nah seperti itulah logika yang saya inginkan untuk hak akses "Pembuat" ketika ingin menambah data kegiatan berdasarkan jenis_users. Intinya dari permasalahan ini yang saya inginkan yaitu : 
+
+1. Jika users yang login berdasarkan jenis_users nya itu "Mahasiswa" maka ketika ia ingin tambah data dan memilih kolom Penyelenggara dengan pilihan mahasiswa munculkan sebuah 3 kolom baru yang bernama Nama_lengkap, Jurusan, dan prodi untuk isi dari kolom tersebut itu diambil dari data users pembuat yang login saat itu. Nah jika memilih penyelenggara dengan pilihan "Karyawan" maka tampilkan pesan "Anda harus memilih sesuai dengan jenis_users Anda".
+
+2. Sedangkan jika users yang login berdasarkan jenis_users nya itu "Karyawan" maka ketika ia ingin tambah data dan memilih kolom Penyelenggara dengan pilihan karyawan munculkan sebuah 2 kolom baru yang bernama Nama_lengkap dan Unit untuk isi dari kolom tersebut itu diambil dari data users pembuat yang login saat itu. Nah jika memilih penyelenggara dengan pilihan "Mahasiswa" maka tampilkan pesan "Anda harus memilih sesuai dengan jenis_users Anda".
+
+Untuk websitenya itu saya menggunakan php, codeigniter 4 via composer dan bootstrap dan saya juga telah menambahkan sebuah fitur pembatasan hak akses menggunakan Filter dan Middleware yang dimana digunakan untuk pembatasan hak akses, jadi para hak akses tidak bisa mengakses halaman yang bukan hak nya. Apa kamu bisa membuatkan sesuai dengan yang saya inginkan diatas?

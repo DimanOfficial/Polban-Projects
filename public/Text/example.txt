@@ -1,0 +1,728 @@
+saya mempunyai sebuah dashboard yang mengelola tabel data kegiatan seperti pada gambar pertama diatas. Nah setelah itu saya membuat sebuah tampilan untuk pengunjung biasa yang hanya bisa melihat aja. Nah bagaimana caranya agar data pada tabel kegiatan di dashboard bisa ditampilkan ke tampilan halaman pengunjung dalam bentuk card seperti pada gambar kedua. Untuk pembuatan websitenya saya menggunakan PHP, CodeIgniter 4 Via Composer dan Bootstrap.
+
+Nama Kegiatan
+Poster
+Deskripsi Kegiatan
+Tanggal Mulai
+Tanggal Selesai
+Lokasi
+Jenis Kegiatan
+Penanggung Jawab
+Peserta
+Nara Hubung
+Penyelenggara
+Jenis Penyelenggara
+Detail Penyelenggara
+Waktu Kegiatan
+
+<div class="container mt-5">
+        <h1 class="mb-4">Daftar Kegiatan</h1>
+        <div class="row">
+            <?php foreach ($kegiatan as $k): ?>
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <img src="<?= base_url('uploads/' . $k['poster']); ?>" class="card-img-top" alt="<?= $k['nama_kegiatan']; ?>">
+                        <div class="card-body">
+                            <h5 class="card-title"><?= $k['nama_kegiatan']; ?></h5>
+                            <p class="card-text"><strong>Deskripsi:</strong> <?= $k['deskripsi']; ?></p>
+                            <p><strong>Tanggal:</strong> <?= date('d M Y', strtotime($k['tanggal_mulai'])); ?> - <?= date('d M Y', strtotime($k['tanggal_selesai'])); ?></p>
+                            <p><strong>Lokasi:</strong> <?= $k['lokasi']; ?></p>
+                            <p><strong>Jenis Kegiatan:</strong> <?= $k['jenis_kegiatan']; ?></p>
+                            <p><strong>Penanggung Jawab:</strong> <?= $k['penanggung_jawab']; ?></p>
+                            <p><strong>Peserta:</strong> <?= $k['peserta']; ?></p>
+                            <p><strong>Nara Hubung:</strong> <?= $k['nara_hubung']; ?></p>
+                            <p><strong>Penyelenggara:</strong> <?= $k['penyelenggara']; ?></p>
+                            <p><strong>Jenis Penyelenggara:</strong> <?= $k['jenis_penyelenggara']; ?></p>
+                            <p><strong>Detail Penyelenggara:</strong> <?= $k['detail_penyelenggara']; ?></p>
+                            <p><strong>Waktu Kegiatan:</strong> <?= $k['waktu_kegiatan']; ?></p>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+
+
+Saya sudah membuat sebuah tampilan website yang menampilkan daftar kegiatan. Disana daftar kegiatan diambil dari dashboard yang tepatnya diambil di tabel kegiatan. Nah disana kan baru ada Card berisi judul dari suatu kegiatan, di card tersebut terdapat sebuah button selengkapnya. Nah saya ingin agar ketika saya klik button tersebut akan muncul sebuah POP UP yang menampilkan sebuah gambar, deskrpsi detail dan lengkap dari kegiatan tersebut. data pop up tersebut sama diambil dari dashboard. Tolong buatkan kodingan dengan logika yang mudah dipahami serta yang tidak terlalu sulit tetapi memiliki performa yang bagus. Ouh iyah saya membuat website tersebut dengan menggunakan PHP, CodeIgniter 4 Via Composer dan Bootstrap.
+
+
+pop up modal sudah berjalan dengan baik, tetapi ada satu masalah yaitu pop up modal yang muncul itu keluar dari tampilan jadi bisa dibilang terlalu besar seperti pada gambar diatas. Apa bisa disesuaikan/ diperkecil atau diubah menjadi agak lebar agar nanti tata letak gambarnya bisa ada di sebelah kiri sedangkan deskrpisi lainnya ada disebelah kanan, untuk ukuran height nya itu sekitar 100vh
+
+
+saya memiliki sebuah tabel data unit pada dashboard, nah saya ingin membuat sebuah tombol di dekat tombol tambah data yaitu sebuah tombol untuk bisa mendownload data tabel unit berbentuk pdf dan excell. Jadi ketika saya tekan tombol "Download PDF" atau "Download Excell" nanti data tabel unit akan terdownload dalam bentuk pdf maupun excell. Ouh iyah misalnya kalau saya tambah data baru pada tabel unit, saya juga ingin agar pas kita klik download itu file pdf atau excell nya tuh berisi data yang sudah diperbarui tadi. Jadi datanya otomatis terupdate saat kita menambah data baru.
+
+Untuk pembuatan website nya saya menggunakan PHP, CodeIgniter 4 Via Composer dan Bootstrap.
+
+
+
+saya mempunyai sebuah tabel data kegiatan di dashboard. Nah saya ingin membuat sebuah stats atau chart atau grafik dari tabel kegiatan. Untuk chart itu bertujuan untuk menampilkan data kegiatan selama 1 bulan. Jadi misalnya dalam 1 bulan tuh ada berapa kegiatan yang ada. Misalnya dalam 1 minggu berapa, 2 minggu, sampai 4 minggu atau 1 bulan. Untuk pembuatannya saya menggunakan PHP, CodeIgniter 4 Via Composer dan Bootstrap.
+
+Untuk tabelnya kegiatannya seperti ini 
+
+id_kegiatan
+id_jurusan
+id_prodi
+id_unit
+'nama_kegiatan',
+'poster',
+'deskripsi',
+'tanggal_mulai',
+'tanggal_selesai',
+'lokasi',
+'jenis_kegiatan',
+'penanggung_jawab',
+'peserta',
+'nara_hubung',
+'penyelenggara',
+'jenis_penyelenggara',
+'detail_penyelenggara',
+'waktu_kegiatan'
+
+Misalkan seperti pada gambar diatas, tapi saya ingin yang dibawahnya menunjukan per minggu dan sebelah kiri itu jumlah kegiatan
+
+saya mempunyai sebuah 4 tabel yaitu jurusan, prodi, unit dan kegiatan. Nah untuk tabel kegiatan itu nanti akan terhubung dengan ketiga tabel diatas. Untuk kolom kegiatan seperti berikut : 
+
+        'nama_kegiatan', 
+        'poster',
+        'deskripsi',
+        'tanggal_mulai',
+        'tanggal_selesai',
+        'lokasi',
+        'jenis_kegiatan',
+        'penanggung_jawab',
+        'peserta',
+        'nara_hubung',
+        'penyelenggara',
+        'jenis_penyelenggara',
+       'detail_penyelenggara' ( tipe data Varchar)
+        'waktu_kegiatan' 
+
+ nanti kita akan mengambil data dari ketiga tabel dan menyimpan data yang sudah kita ambil ke kolom detail_penyelenggara. Tapi untuk bisa menyimpan data yang kita ambil, kita juga harus bisa memenuhi kondisi sebelumnya. 
+
+document.addEventListener('DOMContentLoaded', function () {
+        const jurusan = <?= json_encode($jurusan ?? []); ?>;
+        const prodi = <?= json_encode($prodi ?? []); ?>;
+        const unit = <?= json_encode($unit ?? []); ?>;
+
+        document.getElementById('jenis_penyelenggara').addEventListener('change', function () {
+            const penyelenggara = document.getElementById('penyelenggara').value;
+            const jenisPenyelenggara = this.value;
+            const dropdownDinamis = document.getElementById('dropdown-dinamis');
+            const dropdownPilihan = document.getElementById('detail_penyelenggara');
+            const labelDropdown = document.getElementById('label-dropdown');
+
+            // Kosongkan dropdown sebelumnya
+            dropdownPilihan.innerHTML = '<option value="">-- Pilih --</option>';
+
+            if (penyelenggara === 'mahasiswa' && jenisPenyelenggara === 'jurusan') {
+                labelDropdown.innerText = 'Pilih Jurusan';
+                jurusan.forEach(item => {
+                    dropdownPilihan.innerHTML += <option value="${item.id_jurusan}">${item.nama_jurusan}</option>;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else if (penyelenggara === 'mahasiswa' && jenisPenyelenggara === 'prodi') {
+                labelDropdown.innerText = 'Pilih Prodi';
+                prodi.forEach(item => {
+                    dropdownPilihan.innerHTML += <option value="${item.id_prodi}">${item.nama_prodi}</option>;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else if (penyelenggara === 'direktur' && jenisPenyelenggara === 'unit') {
+                labelDropdown.innerText = 'Pilih Unit';
+                unit.forEach(item => {
+                    dropdownPilihan.innerHTML += <option value="${item.id_unit}">${item.nama_unit}</option>;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else {
+                dropdownDinamis.style.display = 'none';
+            }
+        });
+    }); 
+
+
+Nah jadi ketika 2 kondisi sudah terpenuhi maka dropdown untuk data tertentu akan muncul. Nah saya ingin agar data yang sudah kita ambil dari ketiga tabel tersebut di simpan di kolom detail_penyelenggara dan untuk format simpannya harus nama jangan ID. Untuk pembuatannya saya menggunakan PHP, CodeIgniter 4 Via Composer dan Bootstrap.
+
+Untuk form nya seperti ini nanti
+
+<!-- Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="penyelenggara" class="form-label">Penyelenggara</label> <br>
+                        <select class="form-control" id="penyelenggara" name="penyelenggara">
+                            <option value="">-- Pilih Penyelenggara --</option>
+                            <option value="mahasiswa" <?= old('penyelenggara') === 'mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="direktur" <?= old('penyelenggara') === 'direktur' ? 'selected' : ''; ?>>Direktur</option>
+                        </select>
+                    </div>
+
+                    <!-- Jenis Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="jenis_penyelenggara" class="form-label">Jenis Penyelenggara</label> <br>
+                        <select class="form-control" id="jenis_penyelenggara" name="jenis_penyelenggara">
+                            <option value="">-- Pilih Jenis Penyelenggara --</option>
+                            <option value="jurusan" <?= old('jenis_penyelenggara') === 'jurusan' ? 'selected' : ''; ?>>Jurusan</option>
+                            <option value="prodi" <?= old('jenis_penyelenggara') === 'prodi' ? 'selected' : ''; ?>>Prodi</option>
+                            <option value="unit" <?= old('jenis_penyelenggara') === 'unit' ? 'selected' : ''; ?>>Unit</option>
+                        </select>
+                    </div>
+
+                    <!-- dinamis dropdown -->
+                    <div class="mb-3" id="dropdown-dinamis" style="display: none;">
+                        <label for="dropdown_pilihan" class="form-label" id="label-dropdown"></label> <br>
+                        <select class="form-control" id="detail_penyelenggara" name="detail_penyelenggara">
+                            <option value="">-- Pilih --</option>
+                        </select>
+                    </div>
+
+untuk model dan controllernya masih belum diapa apain, masih seperti biasa. Apakah perlu menggunakan sebuah join. Soalnya kan ini udah berjalan dan sudah berhasil menyimpan data di kolom detail_penyelenggara tapi masih bentuk ID pas ditampilkan ke dashboardnya. Saya ingin nya nama pas ditampilinnya.
+
+
+
+
+
+
+<?= $this->extend('template/template'); ?>
+
+<?= $this->section('content'); ?>
+<div class="container mt-5">
+    <div class="content">
+        <h1 class="h3 mb-4 font-weight-bold text-gray-800">Tambah Kegiatan</h1>
+
+        <!-- Menampilkan error jika ada -->
+        <?php if (session()->getFlashdata('errors')): ?>
+            <div class="alert alert-danger">
+                <ul>
+                    <?php foreach (session()->getFlashdata('errors') as $error): ?>
+                        <li><?= esc($error); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <!-- Form untuk menambah kegiatan -->
+        <form action="/kegiatan/store" method="POST" enctype="multipart/form-data">
+            <?= csrf_field(); ?>
+            <div class="row bg-white shadow-sm p-4 rounded">
+                <!-- Kolom Kiri -->
+                <div class="col-md-6">
+                    <!-- Nama Kegiatan -->
+                    <div class="mb-3">
+                        <label for="nama_kegiatan" class="form-label">Nama Kegiatan</label>
+                        <input type="text" class="form-control" id="nama_kegiatan" name="nama_kegiatan" value="<?= old('nama_kegiatan'); ?>" placeholder="Masukkan Nama Kegiatan">
+                    </div>
+
+                    <!-- Deskripsi Kegiatan -->
+                    <div class="mb-3">
+                        <label for="deskripsi" class="form-label">Deskripsi Kegiatan</label>
+                        <textarea class="form-control costum-area" id="deskripsi" name="deskripsi" rows="3" placeholder="Masukkan Deskripsi Kegiatan"><?= old('deskripsi'); ?></textarea>
+                    </div>
+
+                    <!-- Tanggal Mulai -->
+                    <div class="mb-3">
+                        <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                        <input type="date" class="form-control" id="tanggal_mulai" name="tanggal_mulai" value="<?= old('tanggal_mulai'); ?>">
+                    </div>
+
+                    <!-- Tanggal Selesai -->
+                    <div class="mb-3">
+                        <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                        <input type="date" class="form-control" id="tanggal_selesai" name="tanggal_selesai" value="<?= old('tanggal_selesai'); ?>">
+                    </div>
+
+                    <!-- Lokasi -->
+                    <div class="mb-3">
+                        <label for="lokasi" class="form-label">Lokasi</label>
+                        <input type="text" class="form-control" id="lokasi" name="lokasi" value="<?= old('lokasi'); ?>" placeholder="Masukkan Lokasi">
+                    </div>
+
+                    <!-- Poster -->
+                    <div class="mb-3">
+                        <label for="poster" class="form-label">Unggah Poster</label>
+                        <input type="file" class="form-control" id="poster" name="poster" accept="image/*">
+                    </div>
+                </div>
+
+                <!-- Kolom Kanan -->
+                <div class="col-md-6">
+                    <!-- Waktu Kegiatan -->
+                    <div class="mb-3">
+                        <label for="waktu_kegiatan" class="form-label">Waktu Kegiatan</label>
+                        <input type="text" class="form-control" id="waktu_kegiatan" name="waktu_kegiatan" value="<?= old('waktu_kegiatan'); ?>" placeholder="Waktu mulai - selesai kegiatan">
+                    </div>
+
+                    <!-- Nara Hubung -->
+                    <div class="mb-3">
+                        <label for="nara_hubung" class="form-label">Nara Hubung</label>
+                        <input type="text" class="form-control" id="nara_hubung" name="nara_hubung" value="<?= old('nara_hubung'); ?>" placeholder="Masukkan Nara Hubung">
+                    </div>
+
+                    <!-- Penanggung Jawab -->
+                    <div class="mb-3">
+                        <label for="penanggung_jawab" class="form-label">Penanggung Jawab</label>
+                        <input type="text" class="form-control" id="penanggung_jawab" name="penanggung_jawab" value="<?= old('penanggung_jawab'); ?>" placeholder="Masukkan Penanggung Jawab">
+                    </div>
+
+                    <!-- Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="penyelenggara" class="form-label">Penyelenggara</label> <br>
+                        <select class="form-control" id="penyelenggara" name="penyelenggara">
+                            <option value="">-- Pilih Penyelenggara --</option>
+                            <option value="mahasiswa" <?= old('penyelenggara') === 'mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="direktur" <?= old('penyelenggara') === 'direktur' ? 'selected' : ''; ?>>Direktur</option>
+                        </select>
+                    </div>
+
+                    <!-- Jenis Penyelenggara -->
+                    <div class="mb-3">
+                        <label for="jenis_penyelenggara" class="form-label">Jenis Penyelenggara</label> <br>
+                        <select class="form-control" id="jenis_penyelenggara" name="jenis_penyelenggara">
+                            <option value="">-- Pilih Jenis Penyelenggara --</option>
+                            <option value="jurusan" <?= old('jenis_penyelenggara') === 'jurusan' ? 'selected' : ''; ?>>Jurusan</option>
+                            <option value="prodi" <?= old('jenis_penyelenggara') === 'prodi' ? 'selected' : ''; ?>>Prodi</option>
+                            <option value="unit" <?= old('jenis_penyelenggara') === 'unit' ? 'selected' : ''; ?>>Unit</option>
+                        </select>
+                    </div>
+
+                    <!-- dinamis dropdown -->
+                    <div class="mb-3" id="dropdown-dinamis" style="display: none;">
+                        <label for="dropdown_pilihan" class="form-label" id="label-dropdown"></label> <br>
+                        <select class="form-control" id="detail_penyelenggara" name="detail_penyelenggara">
+                            <option value="">-- Pilih --</option>
+                        </select>
+                    </div>
+
+                    <!-- Peserta -->
+                    <div class="mb-3">
+                        <label for="peserta" class="form-label">Peserta</label> <br>
+                        <select class="form-control" id="peserta" name="peserta">
+                            <option value="">-- Pilih Peserta --</option>
+                            <option value="mahasiswa" <?= old('peserta') === 'mahasiswa' ? 'selected' : ''; ?>>Mahasiswa</option>
+                            <option value="karyawan" <?= old('peserta') === 'karyawan' ? 'selected' : ''; ?>>Karyawan</option>
+                            <option value="umum" <?= old('peserta') === 'umum' ? 'selected' : ''; ?>>Umum</option>
+                            <option value="pejabat" <?= old('peserta') === 'pejabat' ? 'selected' : ''; ?>>Pejabat</option>
+                        </select>
+                    </div>
+
+                    <!-- Jenis Kegiatan -->
+                    <div class="mb-3">
+                        <label for="jenis_kegiatan" class="form-label">Jenis Kegiatan</label> <br>
+                        <select class="form-control" id="jenis_kegiatan" name="jenis_kegiatan">
+                            <option value="">-- Pilih Jenis Kegiatan --</option>
+                            <option value="Akademik" <?= old('jenis_kegiatan') === 'Akademik' ? 'selected' : ''; ?>>Akademik</option>
+                            <option value="Non Akademik" <?= old('jenis_kegiatan') === 'Non Akademik' ? 'selected' : ''; ?>>Non Akademik</option>
+                            <option value="Umum" <?= old('jenis_kegiatan') === 'Umum' ? 'selected' : ''; ?>>Umum</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Button Submit -->
+            <button type="submit" class="btn btn-primary mt-3">Simpan</button>
+            <a href="/kegiatan" class="btn btn-secondary mt-3">Kembali</a>
+        </form>
+    </div>
+</div>
+
+<style>
+    .costum-area {
+        width: 100%;
+        resize: none;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const jurusan = <?= json_encode($jurusan ?? []); ?>;
+        const prodi = <?= json_encode($prodi ?? []); ?>;
+        const unit = <?= json_encode($unit ?? []); ?>;
+
+        document.getElementById('jenis_penyelenggara').addEventListener('change', function () {
+            const penyelenggara = document.getElementById('penyelenggara').value;
+            const jenisPenyelenggara = this.value;
+            const dropdownDinamis = document.getElementById('dropdown-dinamis');
+            const dropdownPilihan = document.getElementById('detail_penyelenggara');
+            const labelDropdown = document.getElementById('label-dropdown');
+
+            // Kosongkan dropdown sebelumnya
+            dropdownPilihan.innerHTML = '<option value="">-- Pilih --</option>';
+
+            if (penyelenggara === 'mahasiswa' && jenisPenyelenggara === 'jurusan') {
+                labelDropdown.innerText = 'Pilih Jurusan';
+                jurusan.forEach(item => {
+                    dropdownPilihan.innerHTML += `<option value="${item.id_jurusan}">${item.nama_jurusan}</option>`;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else if (penyelenggara === 'mahasiswa' && jenisPenyelenggara === 'prodi') {
+                labelDropdown.innerText = 'Pilih Prodi';
+                prodi.forEach(item => {
+                    dropdownPilihan.innerHTML += `<option value="${item.id_prodi}">${item.nama_prodi}</option>`;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else if (penyelenggara === 'direktur' && jenisPenyelenggara === 'unit') {
+                labelDropdown.innerText = 'Pilih Unit';
+                unit.forEach(item => {
+                    dropdownPilihan.innerHTML += `<option value="${item.id_unit}">${item.nama_unit}</option>`;
+                });
+                dropdownDinamis.style.display = 'block';
+            } else {
+                dropdownDinamis.style.display = 'none';
+            }
+        });
+    });
+</script>
+
+<?= $this->endSection(); ?>
+
+
+
+
+
+
+
+
+
+
+<?php
+
+namespace App\Controllers;
+
+use App\Models\kegiatanModel;
+use App\Models\jurusanModel;
+use App\Models\prodiModel;
+use App\Models\unitModel;
+use Dompdf\Dompdf;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
+class KegiatanController extends BaseController
+{
+    protected $kegiatanModel;
+    protected $jurusanModel;
+    protected $prodiModel;
+    protected $unitModel;
+
+    public function __construct()
+    {
+        $this->kegiatanModel = new kegiatanModel();
+        $this->jurusanModel = new jurusanModel();  // Perbaiki inisialisasi
+        $this->prodiModel = new prodiModel();      // Perbaiki inisialisasi
+        $this->unitModel = new unitModel();        // Perbaiki inisialisasi
+    }
+
+    public function chart()
+    {
+        $kegiatanModel = new KegiatanModel();
+
+        // Ambil data kegiatan
+        $kegiatan = $kegiatanModel->findAll();
+
+        // Format data untuk Chart.js
+        $data = [
+            'labels' => array_column($kegiatan, 'nama_kegiatan'), // Label berdasarkan nama kegiatan
+            'data' => array_map(function ($item) {
+                return strtotime($item['tanggal_selesai']) - strtotime($item['tanggal_mulai']);
+            }, $kegiatan), // Durasi kegiatan (tanggal selesai - tanggal mulai)
+        ];
+
+        return view('chart', ['chartData' => json_encode($data)]);
+}
+
+
+
+    public function index()
+    {
+
+        $data = [
+            'title' => 'Halaman Kegiatan',
+            'kegiatan' => $kegiatan,
+            'pager' => $this->kegiatanModel->pager, // Objek pager untuk pagination
+            'keyword' => $keyword, // Simpan keyword untuk dioper ke view
+        ];
+
+        return view('kegiatan/index', $data);
+    }
+
+    public function create()
+    {
+        $data = [
+            'title' => 'Halaman Kegiatan',
+            'kegiatan' => $this->kegiatanModel->find(),
+            'jurusan' => $this->jurusanModel->findAll(),
+            'prodi' => $this->prodiModel->findAll(),
+            'unit' => $this->unitModel->findAll(),
+        ];
+
+        return view('kegiatan/create', $data);
+    }
+
+    public function store()
+{
+
+    // Simpan data ke database dengan nama file poster
+    $this->kegiatanModel->save([
+        'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+        'poster' => $newName,  // Simpan nama file gambar di database
+        'deskripsi' => $this->request->getPost('deskripsi'),
+        'tanggal_mulai' => $tanggalMulai,
+        'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+        'lokasi' => $this->request->getPost('lokasi'),
+        'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+        'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+        'peserta' => $this->request->getPost('peserta'),
+        'nara_hubung' => $this->request->getPost('nara_hubung'),
+        'penyelenggara' => $this->request->getPost('penyelenggara'),
+        'jenis_penyelenggara' => $this->request->getPost('jenis_penyelenggara'),
+        'detail_penyelenggara' => $this->request->getPost('detail_penyelenggara'),
+        'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan')
+    ]);
+
+
+    return redirect()->to('/kegiatan')->with('success', 'Data berhasil ditambahkan.');
+}
+
+
+}
+
+
+
+
+
+
+
+
+
+/////////////////////////////////////
+
+saya mempunyai sebuah 4 tabel yaitu jurusan, prodi, unit dan kegiatan. Nah untuk tabel kegiatan itu nanti akan terhubung dengan ketiga tabel diatas. Untuk kolom kegiatan seperti pada gambar diatas.
+
+id_kegiatan
+id_jurusan
+id_prodi
+id_unit
+'nama_kegiatan',
+'poster',
+'deskripsi',
+'tanggal_mulai',
+'tanggal_selesai',
+'lokasi',
+'jenis_kegiatan',
+'penanggung_jawab',
+'peserta',
+'nara_hubung',
+'penyelenggara',
+'jenis_penyelenggara',
+'detail_penyelenggara',
+'waktu_kegiatan' 
+
+Disana terdapat kolom id_jurusan, id_unit dan id_prodi sebagai foreign key. nanti kita akan mengambil data dari ketiga tabel dan menyimpan data yang sudah kita ambil ke kolom detail_penyelenggara mungkin akan memanfaatkan  id_jurusan, id_unit dan id_prodi. Tapi untuk bisa menyimpan data yang kita ambil, kita juga harus bisa memenuhi kondisi sebelumnya.  Nah disana juga ada 2 kolom yang bernama "Penyelenggara" dan "Jenis Penyelenggara", untuk penyelenggara itu berupa pilihan yaitu Mahasiswa dan Direktur. Sedangkan jenis penyelenggara berisi jurusan, unit dan prodi. Jadi logika nya seperti ini : 
+
+Kalau saya memilih  penyelenggara "mahasiswa"  dan jenis penyelenggara "jurusan", maka untuk inputan detail_penyelenggara akan memunculkan sebuah select list data jurusan.
+
+Kalau saya memilih  penyelenggara "Mahasiswa"  dan jenis penyelenggara "prodi", maka untuk inputan detail_penyelenggara akan memunculkan sebuah select list data prodi.
+
+Kalau saya memilih  penyelenggara "Direktur"  dan jenis penyelenggara "unit", maka untuk inputan detail_penyelenggara akan memunculkan sebuah select list data unit.
+
+
+Dan kalau saya memilih yang tidak sesuai dengan yang saya katakan diatas, tolong kasih pesan bahwa anda harus memilih misalnya 
+
+"Anda harus memilih penyelenggara mahasiswa dan jenis penyelenggara jurusan" atau "Anda harus memilih penyelenggara mahasiswa dan jenis penyelenggara prodi" atau "Anda harus memilih penyelenggara Direkturdan jenis penyelenggara unit".
+
+
+Nah kan setelah kondisi terpenuhi, nanti data akan disubmit dan tersimpan ke database. Nah saya ingin agar ketika ditampilkan itu kolom detail_penyelenggara yang sudah menyimpan data yang diambil dari tabel lain itu disimpannya berupa nama, jangan ID. Karena kolom detail_penyelenggara itu hanya bisa mempunyai 1 foreign key, maka dari itu saya membuat kolom yaitu id_jurusan, id_unit dan id_prodi sebagai foreign key agar tabel kegiatan bisa terhubung ke 3 tabel lainnya. Mungkin kamu bisa memanfaatkan itu untuk bisa mengambil dan menyimpan data ke kolom detail_penyelenggara dalam bentuk Nama.
+
+Untuk pembuatannya saya menggunakan PHP, CodeIgniter 4 via Composer dan Bootstrap. Nah jadi saya ingin kamu membuatkan kodingan lengkap serta langkah langkah dari mulai dari kegiatanModel, kegiatanController, serta untuk View nya itu Folder bernama "Kegiatan" dan dalam folder tersebut juga ada file lainnya, File index, file create, File edit. Tolong untuk pengguanaan nama variabel atau lainnya, gunakan kata yang mudah dipahami
+
+Untuk kegiatanModel tolong buat lengkap, untuk kegiatanControllernya juga lengkap dan sudah dilengkapi dengan CRUD, dan untuk view file index saya ingin agar bisa menampilkan data dalam bentuk tabel, untuk file create untuk inputnya tolong yang lengkap sesuai dengan data kolom pada tabel kegiatan, sama halnya juga dengan file Edit
+
+
+
+//////////////////////////////
+<?php
+
+namespace App\Controllers;
+
+use App\Models\KegiatanModel;
+use App\Models\JurusanModel;
+use App\Models\ProdiModel;
+use App\Models\UnitModel;
+
+class KegiatanController extends BaseController
+{
+    protected $kegiatanModel;
+    protected $jurusanModel;
+    protected $prodiModel;
+    protected $unitModel;
+
+    public function __construct()
+    {
+        $this->kegiatanModel = new KegiatanModel();
+        $this->jurusanModel = new JurusanModel();
+        $this->prodiModel = new ProdiModel();
+        $this->unitModel = new UnitModel();
+    }
+
+    public function index()
+    {
+        $data = [
+            'kegiatan' => $this->kegiatanModel->getKegiatanWithDetails()
+        ];
+
+        return view('Kegiatan/index', $data);
+    }
+
+    public function create()
+    {
+        $data = [
+            'jurusan' => $this->jurusanModel->findAll(),
+            'prodi' => $this->prodiModel->findAll(),
+            'unit' => $this->unitModel->findAll()
+        ];
+
+        return view('Kegiatan/create', $data);
+    }
+
+    public function store()
+    {
+        $jenisPenyelenggara = $this->request->getPost('jenis_penyelenggara');
+        $detailPenyelenggara = null;
+
+        if ($jenisPenyelenggara === 'jurusan') {
+            $detailPenyelenggara = $this->request->getPost('id_jurusan');
+        } elseif ($jenisPenyelenggara === 'prodi') {
+            $detailPenyelenggara = $this->request->getPost('id_prodi');
+        } elseif ($jenisPenyelenggara === 'unit') {
+            $detailPenyelenggara = $this->request->getPost('id_unit');
+        }
+
+        $data = [
+            'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+            'poster' => $this->request->getPost('poster'),
+            'deskripsi' => $this->request->getPost('deskripsi'),
+            'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+            'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+            'lokasi' => $this->request->getPost('lokasi'),
+            'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+            'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+            'peserta' => $this->request->getPost('peserta'),
+            'nara_hubung' => $this->request->getPost('nara_hubung'),
+            'penyelenggara' => $this->request->getPost('penyelenggara'),
+            'jenis_penyelenggara' => $jenisPenyelenggara,
+            'detail_penyelenggara' => $detailPenyelenggara,
+            'id_jurusan' => $this->request->getPost('id_jurusan') ?: null,
+            'id_prodi' => $this->request->getPost('id_prodi') ?: null,
+            'id_unit' => $this->request->getPost('id_unit') ?: null,
+            'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan')
+        ];
+
+        $this->kegiatanModel->insert($data);
+
+        return redirect()->to('/kegiatan')->with('success', 'Data kegiatan berhasil ditambahkan!');
+    }
+
+    public function edit($id)
+    {
+        $data = [
+            'kegiatan' => $this->kegiatanModel->find($id),
+            'jurusan' => $this->jurusanModel->findAll(),
+            'prodi' => $this->prodiModel->findAll(),
+            'unit' => $this->unitModel->findAll()
+        ];
+
+        return view('Kegiatan/edit', $data);
+    }
+
+    public function update($id)
+    {
+        $jenisPenyelenggara = $this->request->getPost('jenis_penyelenggara');
+        $detailPenyelenggara = null;
+
+        if ($jenisPenyelenggara === 'jurusan') {
+            $detailPenyelenggara = $this->request->getPost('id_jurusan');
+        } elseif ($jenisPenyelenggara === 'prodi') {
+            $detailPenyelenggara = $this->request->getPost('id_prodi');
+        } elseif ($jenisPenyelenggara === 'unit') {
+            $detailPenyelenggara = $this->request->getPost('id_unit');
+        }
+
+        $data = [
+            'nama_kegiatan' => $this->request->getPost('nama_kegiatan'),
+            'poster' => $this->request->getPost('poster'),
+            'deskripsi' => $this->request->getPost('deskripsi'),
+            'tanggal_mulai' => $this->request->getPost('tanggal_mulai'),
+            'tanggal_selesai' => $this->request->getPost('tanggal_selesai'),
+            'lokasi' => $this->request->getPost('lokasi'),
+            'jenis_kegiatan' => $this->request->getPost('jenis_kegiatan'),
+            'penanggung_jawab' => $this->request->getPost('penanggung_jawab'),
+            'peserta' => $this->request->getPost('peserta'),
+            'nara_hubung' => $this->request->getPost('nara_hubung'),
+            'penyelenggara' => $this->request->getPost('penyelenggara'),
+            'jenis_penyelenggara' => $jenisPenyelenggara,
+            'detail_penyelenggara' => $detailPenyelenggara,
+            'id_jurusan' => $this->request->getPost('id_jurusan') ?: null,
+            'id_prodi' => $this->request->getPost('id_prodi') ?: null,
+            'id_unit' => $this->request->getPost('id_unit') ?: null,
+            'waktu_kegiatan' => $this->request->getPost('waktu_kegiatan')
+        ];
+
+        $this->kegiatanModel->update($id, $data);
+
+        return redirect()->to('/kegiatan')->with('success', 'Data kegiatan berhasil diperbarui!');
+    }
+
+    public function delete($id)
+    {
+        $this->kegiatanModel->delete($id);
+        return redirect()->to('/kegiatan')->with('success', 'Data kegiatan berhasil dihapus!');
+    }
+}
+
+?>
+
+
+
+/////////////////////
+<script>
+    document.getElementById('jenis_penyelenggara').addEventListener('change', function() {
+        const penyelenggara = document.getElementById('penyelenggara').value;
+        const jenisPenyelenggara = this.value;
+
+        let options = '<option value="">Pilih Detail</option>';
+        if (penyelenggara === 'mahasiswa' && jenisPenyelenggara === 'jurusan') {
+            <?php foreach ($jurusan as $j): ?>
+                options += '<option value="<?= $j['id_jurusan'] ?>"><?= $j['nama_jurusan'] ?></option>';
+            <?php endforeach; ?>
+        } else if (penyelenggara === 'mahasiswa' && jenisPenyelenggara === 'prodi') {
+            <?php foreach ($prodi as $p): ?>
+                options += '<option value="<?= $p['id_prodi'] ?>"><?= $p['nama_prodi'] ?></option>';
+            <?php endforeach; ?>
+        } else if (penyelenggara === 'direktur' && jenisPenyelenggara === 'unit') {
+            <?php foreach ($unit as $u): ?>
+                options += '<option value="<?= $u['id_unit'] ?>"><?= $u['nama_unit'] ?></option>';
+            <?php endforeach; ?>
+        } else {
+            alert('Penyelenggara atau jenis penyelenggara tidak valid.');
+        }
+        document.getElementById('detail_penyelenggara').innerHTML = options;
+    });
+</script>
+
+
+
+
+/////////////////edit 
+ <?php if ($kegiatan['jenis_penyelenggara'] === 'jurusan') : ?>
+                <?php foreach ($jurusan as $j) : ?>
+                    <option value="<?= $j['id_jurusan'] ?>" <?= $j['id_jurusan'] == $kegiatan['id_jurusan'] ? 'selected' : '' ?>><?= $j['nama_jurusan'] ?></option>
+                <?php endforeach; ?>
+            <?php elseif ($kegiatan['jenis_penyelenggara'] === 'prodi') : ?>
+                <?php foreach ($prodi as $p) : ?>
+                    <option value="<?= $p['id_prodi'] ?>" <?= $p['id_prodi'] == $kegiatan['id_prodi'] ? 'selected' : '' ?>><?= $p['nama_prodi'] ?></option>
+                <?php endforeach; ?>
+            <?php elseif ($kegiatan['jenis_penyelenggara'] === 'unit') : ?>
+                <?php foreach ($unit as $u) : ?>
+                    <option value="<?= $u['id_unit'] ?>" <?= $u['id_unit'] == $kegiatan['id_unit'] ? 'selected' : '' ?>><?= $u['nama_unit'] ?></option>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+
+
+
+
